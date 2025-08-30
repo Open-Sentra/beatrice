@@ -21,6 +21,7 @@ enum class ErrorCode {
     BACKEND_ERROR,
     INTERNAL_ERROR,
     NOT_IMPLEMENTED,
+    CLEANUP_FAILED,
     UNKNOWN_ERROR
 };
 
