@@ -1,4 +1,4 @@
-#include "beatrice/PMDBackend.hpp"
+#include "beatrice/DPDKBackend.hpp"
 #include "beatrice/Logger.hpp"
 #include "beatrice/Error.hpp"
 #include <chrono>
@@ -11,15 +11,12 @@ extern "C" {
 #include <rte_mempool.h>
 #include <rte_ring.h>
 #include <rte_version.h>
-#include <rte_dev.h>
-#include <rte_bus.h>
-#include <rte_bus_vdev.h>
 #include <rte_malloc.h>
 }
 
 namespace beatrice {
 
-PMDBackend::PMDBackend()
+DPDKBackend::DPDKBackend()
     : running_(false)
     , initialized_(false)
     , dpdkInitialized_(false)
@@ -34,12 +31,8 @@ PMDBackend::PMDBackend()
     , stats_()
     , errorMutex_()
     , lastError_()
-    , pmdType_("net_tap")
-    , pmdArgs_()
-    , portConfigs_()
-    , virtualDevices_()
-    , portId_(0)
-    , portInitialized_(false)
+    , dpdkArgs_()
+    , ealConfig_()
     , zeroCopyEnabled_(true)
     , dmaAccessEnabled_(false)
     , dmaDevice_("")
@@ -49,11 +42,11 @@ PMDBackend::PMDBackend()
     , dmaFd_(-1) {
 }
 
-PMDBackend::~PMDBackend() {
+DPDKBackend::~DPDKBackend() {
     shutdown();
 }
 
-Result<void> PMDBackend::initialize(const Config& config) {
+Result<void> DPDKBackend::initialize(const Config& config) {
     if (initialized_) {
         return Result<void>::success();
     }
@@ -68,10 +61,6 @@ Result<void> PMDBackend::initialize(const Config& config) {
         return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "Failed to initialize DPDK");
     }
 
-    if (!initializePMD()) {
-        return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "Failed to initialize PMD");
-    }
-
     if (!initializePort()) {
         return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "Failed to initialize DPDK port");
     }
@@ -84,9 +73,9 @@ Result<void> PMDBackend::initialize(const Config& config) {
     return Result<void>::success();
 }
 
-Result<void> PMDBackend::start() {
+Result<void> DPDKBackend::start() {
     if (!initialized_) {
-        return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "PMD backend not initialized");
+        return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "DPDK backend not initialized");
     }
 
     if (running_) {
@@ -98,12 +87,12 @@ Result<void> PMDBackend::start() {
     }
 
     running_ = true;
-    processingThread_ = std::thread(&PMDBackend::packetProcessingLoop, this);
+    processingThread_ = std::thread(&DPDKBackend::packetProcessingLoop, this);
 
     return Result<void>::success();
 }
 
-Result<void> PMDBackend::stop() {
+Result<void> DPDKBackend::stop() {
     if (!running_) {
         return Result<void>::success();
     }
@@ -119,11 +108,11 @@ Result<void> PMDBackend::stop() {
     return Result<void>::success();
 }
 
-bool PMDBackend::isRunning() const noexcept {
+bool DPDKBackend::isRunning() const noexcept {
     return running_;
 }
 
-std::optional<Packet> PMDBackend::nextPacket(std::chrono::milliseconds timeout) {
+std::optional<Packet> DPDKBackend::nextPacket(std::chrono::milliseconds timeout) {
     std::unique_lock<std::mutex> lock(packetQueueMutex_);
     
     if (packetQueue_.empty()) {
@@ -146,7 +135,7 @@ std::optional<Packet> PMDBackend::nextPacket(std::chrono::milliseconds timeout) 
     return packet;
 }
 
-std::vector<Packet> PMDBackend::getPackets(size_t maxPackets, std::chrono::milliseconds timeout) {
+std::vector<Packet> DPDKBackend::getPackets(size_t maxPackets, std::chrono::milliseconds timeout) {
     std::vector<Packet> packets;
     packets.reserve(maxPackets);
 
@@ -165,58 +154,55 @@ std::vector<Packet> PMDBackend::getPackets(size_t maxPackets, std::chrono::milli
     return packets;
 }
 
-void PMDBackend::setPacketCallback(std::function<void(Packet)> callback) {
+void DPDKBackend::setPacketCallback(std::function<void(Packet)> callback) {
     std::lock_guard<std::mutex> lock(callbackMutex_);
     packetCallback_ = callback;
 }
 
-void PMDBackend::removePacketCallback() {
+void DPDKBackend::removePacketCallback() {
     std::lock_guard<std::mutex> lock(callbackMutex_);
     packetCallback_ = nullptr;
 }
 
-PMDBackend::Statistics PMDBackend::getStatistics() const {
+DPDKBackend::Statistics DPDKBackend::getStatistics() const {
     std::lock_guard<std::mutex> lock(statsMutex_);
     return stats_;
 }
 
-void PMDBackend::resetStatistics() {
+void DPDKBackend::resetStatistics() {
     std::lock_guard<std::mutex> lock(statsMutex_);
     stats_ = Statistics{};
 }
 
-std::string PMDBackend::getName() const {
-    return "PMD Backend (" + pmdType_ + ")";
+std::string DPDKBackend::getName() const {
+    return "DPDK Backend";
 }
 
-std::string PMDBackend::getVersion() const {
-    return "PMD Backend v1.0.0";
+std::string DPDKBackend::getVersion() const {
+    return "DPDK Backend v1.0.0";
 }
 
-std::vector<std::string> PMDBackend::getSupportedFeatures() const {
+std::vector<std::string> DPDKBackend::getSupportedFeatures() const {
     return {
         "zero_copy",
         "hardware_timestamping",
         "multi_queue",
         "cpu_affinity",
         "batch_processing",
-        "high_performance",
-        "pmd_support",
-        "virtual_devices",
-        "dynamic_port_management"
+        "high_performance"
     };
 }
 
-bool PMDBackend::isFeatureSupported(const std::string& feature) const {
+bool DPDKBackend::isFeatureSupported(const std::string& feature) const {
     auto features = getSupportedFeatures();
     return std::find(features.begin(), features.end(), feature) != features.end();
 }
 
-PMDBackend::Config PMDBackend::getConfig() const {
+DPDKBackend::Config DPDKBackend::getConfig() const {
     return config_;
 }
 
-Result<void> PMDBackend::updateConfig(const Config& config) {
+Result<void> DPDKBackend::updateConfig(const Config& config) {
     if (running_) {
         return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "Cannot update config while running");
     }
@@ -225,16 +211,16 @@ Result<void> PMDBackend::updateConfig(const Config& config) {
     return Result<void>::success();
 }
 
-std::string PMDBackend::getLastError() const {
+std::string DPDKBackend::getLastError() const {
     std::lock_guard<std::mutex> lock(errorMutex_);
     return lastError_;
 }
 
-bool PMDBackend::isHealthy() const {
-    return initialized_ && dpdkInitialized_ && portInitialized_;
+bool DPDKBackend::isHealthy() const {
+    return initialized_ && dpdkInitialized_ && !lastError_.empty();
 }
 
-Result<void> PMDBackend::healthCheck() {
+Result<void> DPDKBackend::healthCheck() {
     if (!initialized_) {
         return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "Backend not initialized");
     }
@@ -243,129 +229,48 @@ Result<void> PMDBackend::healthCheck() {
         return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "DPDK not initialized");
     }
 
-    if (!portInitialized_) {
-        return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "Port not initialized");
-    }
-
     return Result<void>::success();
 }
 
-Result<void> PMDBackend::setPMDType(const std::string& pmdType) {
-    if (dpdkInitialized_) {
-        return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "DPDK already initialized");
-    }
-    
-    if (!isPMDTypeSupported(pmdType)) {
-        return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "PMD type not supported: " + pmdType);
-    }
-    
-    pmdType_ = pmdType;
-    return Result<void>::success();
-}
-
-Result<void> PMDBackend::setPMDArgs(const std::vector<std::string>& args) {
-    if (dpdkInitialized_) {
-        return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "DPDK already initialized");
-    }
-    pmdArgs_ = args;
-    return Result<void>::success();
-}
-
-Result<void> PMDBackend::setPortConfig(const std::string& portName, const std::map<std::string, std::string>& config) {
-    if (dpdkInitialized_) {
-        return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "DPDK already initialized");
-    }
-    portConfigs_[portName] = config;
-    return Result<void>::success();
-}
-
-std::vector<std::string> PMDBackend::getAvailablePMDs() const {
-    return {
-        "net_tap",
-        "net_tun",
-        "net_pcap",
-        "net_null",
-        "net_ring",
-        "net_vdev",
-        "net_af_packet",
-        "net_af_xdp"
-    };
-}
-
-std::vector<std::string> PMDBackend::getAvailablePorts() const {
-    std::vector<std::string> ports;
-    
-    if (dpdkInitialized_) {
-        uint16_t portCount = rte_eth_dev_count_avail();
-        for (uint16_t i = 0; i < portCount; i++) {
-            char name[RTE_ETH_NAME_MAX_LEN];
-            if (rte_eth_dev_get_name_by_port(i, name) == 0) {
-                ports.push_back(name);
-            }
+    Result<void> DPDKBackend::setDPDKArgs(const std::vector<std::string>& args) {
+        if (dpdkInitialized_) {
+            return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "DPDK already initialized");
         }
-    }
-    
-    return ports;
-}
-
-bool PMDBackend::isPMDSupported(const std::string& pmdType) const {
-    auto pmds = getAvailablePMDs();
-    return std::find(pmds.begin(), pmds.end(), pmdType) != pmds.end();
-}
-
-Result<void> PMDBackend::addVirtualDevice(const std::string& deviceType, const std::map<std::string, std::string>& params) {
-    if (dpdkInitialized_) {
-        return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "DPDK already initialized");
-    }
-    
-    if (createVirtualDevice(deviceType, params)) {
-        virtualDevices_.push_back(deviceType);
+        dpdkArgs_ = args;
         return Result<void>::success();
-    } else {
-        return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "Failed to create virtual device");
     }
-}
 
-Result<void> PMDBackend::removeVirtualDevice(const std::string& deviceName) {
-    if (dpdkInitialized_) {
-        return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "DPDK already initialized");
-    }
-    
-    if (destroyVirtualDevice(deviceName)) {
-        auto it = std::find(virtualDevices_.begin(), virtualDevices_.end(), deviceName);
-        if (it != virtualDevices_.end()) {
-            virtualDevices_.erase(it);
+    Result<void> DPDKBackend::setEALConfig(const std::string& config) {
+        if (dpdkInitialized_) {
+            return Result<void>::error(beatrice::ErrorCode::INVALID_ARGUMENT, "DPDK already initialized");
         }
+        ealConfig_ = config;
         return Result<void>::success();
-    } else {
-        return Result<void>::error(beatrice::ErrorCode::INITIALIZATION_FAILED, "Failed to destroy virtual device");
     }
+
+bool DPDKBackend::isDPDKInitialized() const {
+    return dpdkInitialized_;
 }
 
-bool PMDBackend::validateInterface(const std::string& interface) {
+bool DPDKBackend::validateInterface(const std::string& interface) {
     return !interface.empty();
 }
 
-bool PMDBackend::initializeDPDK() {
+bool DPDKBackend::initializeDPDK() {
     if (dpdkInitialized_) {
         return true;
     }
 
     std::vector<const char*> args;
-    args.push_back("beatrice_pmd");
+    args.push_back("beatrice");
 
-    for (const auto& arg : pmdArgs_) {
+    for (const auto& arg : dpdkArgs_) {
         args.push_back(arg.c_str());
     }
 
-    // Add virtual device arguments if PMD type is set
-    if (pmdType_ == "net_tap") {
-        args.push_back("--vdev");
-        args.push_back("net_tap0");
-    } else if (pmdType_ == "net_tun") {
-        args.push_back("--vdev");
-        args.push_back("net_tun0");
-    }
+    // Add a virtual device for testing (since we don't have physical NICs)
+    args.push_back("--vdev");
+    args.push_back("net_tap0");
 
     int ret = rte_eal_init(args.size(), const_cast<char**>(const_cast<char* const*>(args.data())));
     if (ret < 0) {
@@ -378,22 +283,7 @@ bool PMDBackend::initializeDPDK() {
     return true;
 }
 
-bool PMDBackend::initializePMD() {
-    if (!dpdkInitialized_) {
-        return false;
-    }
-
-    // PMD initialization is handled by DPDK EAL
-    // Virtual devices are created through command line arguments
-    if (pmdType_ == "net_tap" || pmdType_ == "net_tun") {
-        // These PMDs are initialized through DPDK EAL args
-        // No additional initialization needed here
-    }
-
-    return true;
-}
-
-bool PMDBackend::initializePort() {
+bool DPDKBackend::initializePort() {
     if (!dpdkInitialized_) {
         return false;
     }
@@ -407,20 +297,20 @@ bool PMDBackend::initializePort() {
     }
 
     // Use the first available port
-    portId_ = 0;
+    uint16_t portId = 0;
     
     // Check if port is valid
-    if (!rte_eth_dev_is_valid_port(portId_)) {
+    if (!rte_eth_dev_is_valid_port(portId)) {
         std::lock_guard<std::mutex> lock(errorMutex_);
-        lastError_ = "Invalid DPDK port ID: " + std::to_string(portId_);
+        lastError_ = "Invalid DPDK port ID: " + std::to_string(portId);
         return false;
     }
 
     // Get port info for debugging
     struct rte_eth_dev_info devInfo;
-    if (rte_eth_dev_info_get(portId_, &devInfo) < 0) {
+    if (rte_eth_dev_info_get(portId, &devInfo) < 0) {
         std::lock_guard<std::mutex> lock(errorMutex_);
-        lastError_ = "Failed to get port info for port " + std::to_string(portId_);
+        lastError_ = "Failed to get port info for port " + std::to_string(portId);
         return false;
     }
 
@@ -429,20 +319,17 @@ bool PMDBackend::initializePort() {
     portConf.rxmode.offloads = 0;
     portConf.txmode.offloads = 0;
 
-    if (rte_eth_dev_configure(portId_, 1, 1, &portConf) < 0) {
+    if (rte_eth_dev_configure(portId, 1, 1, &portConf) < 0) {
         std::lock_guard<std::mutex> lock(errorMutex_);
-        lastError_ = "Failed to configure DPDK port " + std::to_string(portId_);
+        lastError_ = "Failed to configure DPDK port " + std::to_string(portId);
         return false;
     }
 
-    portInitialized_ = true;
     return true;
 }
 
-bool PMDBackend::setupQueues() {
-    if (!portInitialized_) {
-        return false;
-    }
+bool DPDKBackend::setupQueues() {
+    uint16_t portId = 0;
     
     struct rte_mempool* rxMempool = rte_pktmbuf_pool_create("rx_mempool", 
         config_.numBuffers, 0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
@@ -453,15 +340,15 @@ bool PMDBackend::setupQueues() {
         return false;
     }
 
-    if (rte_eth_rx_queue_setup(portId_, 0, config_.numBuffers, 
-        rte_eth_dev_socket_id(portId_), nullptr, rxMempool) < 0) {
+    if (rte_eth_rx_queue_setup(portId, 0, config_.numBuffers, 
+        rte_eth_dev_socket_id(portId), nullptr, rxMempool) < 0) {
         std::lock_guard<std::mutex> lock(errorMutex_);
         lastError_ = "Failed to setup RX queue";
         return false;
     }
 
-    if (rte_eth_tx_queue_setup(portId_, 0, config_.numBuffers, 
-        rte_eth_dev_socket_id(portId_), nullptr) < 0) {
+    if (rte_eth_tx_queue_setup(portId, 0, config_.numBuffers, 
+        rte_eth_dev_socket_id(portId), nullptr) < 0) {
         std::lock_guard<std::mutex> lock(errorMutex_);
         lastError_ = "Failed to setup TX queue";
         return false;
@@ -470,43 +357,40 @@ bool PMDBackend::setupQueues() {
     return true;
 }
 
-bool PMDBackend::startPort() {
-    if (!portInitialized_) {
-        return false;
-    }
+bool DPDKBackend::startPort() {
+    uint16_t portId = 0;
     
-    if (rte_eth_dev_start(portId_) < 0) {
+    if (rte_eth_dev_start(portId) < 0) {
         std::lock_guard<std::mutex> lock(errorMutex_);
         lastError_ = "Failed to start DPDK port";
         return false;
     }
 
-    rte_eth_promiscuous_enable(portId_);
+    rte_eth_promiscuous_enable(portId);
     return true;
 }
 
-void PMDBackend::stopPort() {
-    if (portInitialized_) {
-        rte_eth_dev_stop(portId_);
-        rte_eth_dev_close(portId_);
-        portInitialized_ = false;
-    }
+void DPDKBackend::stopPort() {
+    uint16_t portId = 0;
+    rte_eth_dev_stop(portId);
+    rte_eth_dev_close(portId);
 }
 
-void PMDBackend::packetProcessingLoop() {
+void DPDKBackend::packetProcessingLoop() {
     while (running_) {
         processPackets();
         std::this_thread::sleep_for(std::chrono::microseconds(100));
     }
 }
 
-void PMDBackend::processPackets() {
-    if (!running_ || !portInitialized_) {
+void DPDKBackend::processPackets() {
+    if (!running_) {
         return;
     }
 
+    uint16_t portId = 0;
     struct rte_mbuf* pkts[32];
-    uint16_t nbRx = rte_eth_rx_burst(portId_, 0, pkts, 32);
+    uint16_t nbRx = rte_eth_rx_burst(portId, 0, pkts, 32);
 
     for (uint16_t i = 0; i < nbRx; i++) {
         struct rte_mbuf* pkt = pkts[i];
@@ -522,7 +406,7 @@ void PMDBackend::processPackets() {
     }
 }
 
-void PMDBackend::shutdown() {
+void DPDKBackend::shutdown() {
     stop();
     
     if (dpdkInitialized_) {
@@ -538,32 +422,16 @@ void PMDBackend::shutdown() {
     initialized_ = false;
 }
 
-bool PMDBackend::isPMDTypeSupported(const std::string& pmdType) const {
-    return isPMDSupported(pmdType);
-}
-
-bool PMDBackend::createVirtualDevice(const std::string& deviceType, const std::map<std::string, std::string>& params) {
-    // Virtual devices are created through DPDK EAL arguments
-    // This function is a placeholder for future implementation
-    return true;
-}
-
-bool PMDBackend::destroyVirtualDevice(const std::string& deviceName) {
-    // Virtual devices are destroyed when DPDK EAL is cleaned up
-    // This function is a placeholder for future implementation
-    return true;
-}
-
 // Zero-copy DMA access methods implementation
-bool PMDBackend::isZeroCopyEnabled() const {
+bool DPDKBackend::isZeroCopyEnabled() const {
     return zeroCopyEnabled_;
 }
 
-bool PMDBackend::isDMAAccessEnabled() const {
+bool DPDKBackend::isDMAAccessEnabled() const {
     return dmaAccessEnabled_;
 }
 
-Result<void> PMDBackend::enableZeroCopy(bool enabled) {
+Result<void> DPDKBackend::enableZeroCopy(bool enabled) {
     if (running_) {
         return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
                                  "Cannot change zero-copy mode while running");
@@ -574,7 +442,7 @@ Result<void> PMDBackend::enableZeroCopy(bool enabled) {
     return Result<void>::success();
 }
 
-Result<void> PMDBackend::enableDMAAccess(bool enabled, const std::string& device) {
+Result<void> DPDKBackend::enableDMAAccess(bool enabled, const std::string& device) {
     if (running_) {
         return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
                                  "Cannot change DMA access while running");
@@ -593,14 +461,14 @@ Result<void> PMDBackend::enableDMAAccess(bool enabled, const std::string& device
     return Result<void>::success();
 }
 
-Result<void> PMDBackend::setDMABufferSize(size_t size) {
+Result<void> DPDKBackend::setDMABufferSize(size_t size) {
     if (running_) {
         return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
                                  "Cannot change DMA buffer size while running");
     }
     
     if (size == 0) {
-        // Auto-size based on PMD configuration
+        // Auto-size based on DPDK configuration
         dmaBufferSize_ = RTE_MBUF_DEFAULT_BUF_SIZE;
         BEATRICE_INFO("DMA buffer size set to auto ({} bytes)", dmaBufferSize_);
     } else {
@@ -611,15 +479,15 @@ Result<void> PMDBackend::setDMABufferSize(size_t size) {
     return Result<void>::success();
 }
 
-size_t PMDBackend::getDMABufferSize() const {
+size_t DPDKBackend::getDMABufferSize() const {
     return dmaBufferSize_;
 }
 
-std::string PMDBackend::getDMADevice() const {
+std::string DPDKBackend::getDMADevice() const {
     return dmaDevice_;
 }
 
-Result<void> PMDBackend::allocateDMABuffers(size_t count) {
+Result<void> DPDKBackend::allocateDMABuffers(size_t count) {
     if (!dmaAccessEnabled_) {
         return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
                                  "DMA access not enabled");
@@ -631,20 +499,22 @@ Result<void> PMDBackend::allocateDMABuffers(size_t count) {
     }
     
     try {
-        // For PMD, we use DPDK's memory management similar to DPDK backend
+        // For DPDK, we use DPDK's memory management
+        // This is a simplified implementation - in practice, you'd integrate with DPDK's DMA framework
+        
         // Calculate total buffer size
         size_t totalSize = count * dmaBufferSize_;
         
         // Allocate using DPDK's memory management
-        dmaBuffers_ = rte_malloc_socket("pmd_dma_buffers", totalSize, RTE_CACHE_LINE_SIZE, rte_socket_id());
+        dmaBuffers_ = rte_malloc_socket("dma_buffers", totalSize, RTE_CACHE_LINE_SIZE, rte_socket_id());
         
         if (!dmaBuffers_) {
             return Result<void>::error(ErrorCode::INITIALIZATION_FAILED, 
-                                     "Failed to allocate PMD DMA buffers");
+                                     "Failed to allocate DPDK DMA buffers");
         }
         
         dmaBufferCount_ = count;
-        BEATRICE_INFO("Allocated {} PMD DMA buffers ({} bytes total)", count, totalSize);
+        BEATRICE_INFO("Allocated {} DPDK DMA buffers ({} bytes total)", count, totalSize);
         
         return Result<void>::success();
         
@@ -653,7 +523,7 @@ Result<void> PMDBackend::allocateDMABuffers(size_t count) {
     }
 }
 
-Result<void> PMDBackend::freeDMABuffers() {
+Result<void> DPDKBackend::freeDMABuffers() {
     if (!dmaBuffers_) {
         return Result<void>::success();
     }
@@ -664,12 +534,12 @@ Result<void> PMDBackend::freeDMABuffers() {
         
         dmaBuffers_ = nullptr;
         dmaBufferCount_ = 0;
-        BEATRICE_INFO("PMD DMA buffers freed successfully");
+        BEATRICE_INFO("DPDK DMA buffers freed successfully");
         
         return Result<void>::success();
         
     } catch (const std::exception& e) {
-        BEATRICE_ERROR("Exception during PMD DMA buffer cleanup: {}", e.what());
+        BEATRICE_ERROR("Exception during DPDK DMA buffer cleanup: {}", e.what());
         return Result<void>::error(ErrorCode::CLEANUP_FAILED, e.what());
     }
 }

@@ -55,7 +55,9 @@ AF_XDPBackend::AF_XDPBackend()
     : socket_(-1), umem_(nullptr), umemSize_(0), fillQueue_(nullptr), 
       completionQueue_(nullptr), rxQueue_(nullptr), txQueue_(nullptr),
       xdpLoader_(std::make_unique<XDPLoader>()), xdpProgramLoaded_(false),
-      running_(false), initialized_(false) {
+      running_(false), initialized_(false), zeroCopyEnabled_(true), 
+      dmaAccessEnabled_(false), dmaDevice_(""), dmaBufferSize_(0), 
+      dmaBuffers_(nullptr), dmaBufferCount_(0), dmaFd_(-1) {
     BEATRICE_INFO("=== AF_XDPBackend constructor START ===");
     BEATRICE_DEBUG("AF_XDPBackend created");
     BEATRICE_INFO("=== AF_XDPBackend constructor END ===");
@@ -978,6 +980,148 @@ int AF_XDPBackend::getInterfaceIndex(const std::string& interfaceName) {
     }
     close(sock);
     return ifr.ifr_ifindex;
+}
+
+// Zero-copy DMA access methods implementation
+bool AF_XDPBackend::isZeroCopyEnabled() const {
+    return zeroCopyEnabled_;
+}
+
+bool AF_XDPBackend::isDMAAccessEnabled() const {
+    return dmaAccessEnabled_;
+}
+
+Result<void> AF_XDPBackend::enableZeroCopy(bool enabled) {
+    if (running_) {
+        return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
+                                 "Cannot change zero-copy mode while running");
+    }
+    
+    zeroCopyEnabled_ = enabled;
+    BEATRICE_INFO("Zero-copy mode {}", enabled ? "enabled" : "disabled");
+    return Result<void>::success();
+}
+
+Result<void> AF_XDPBackend::enableDMAAccess(bool enabled, const std::string& device) {
+    if (running_) {
+        return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
+                                 "Cannot change DMA access while running");
+    }
+    
+    if (enabled && !device.empty()) {
+        dmaDevice_ = device;
+        dmaAccessEnabled_ = true;
+        BEATRICE_INFO("DMA access enabled for device: {}", device);
+    } else {
+        dmaAccessEnabled_ = false;
+        dmaDevice_.clear();
+        BEATRICE_INFO("DMA access disabled");
+    }
+    
+    return Result<void>::success();
+}
+
+Result<void> AF_XDPBackend::setDMABufferSize(size_t size) {
+    if (running_) {
+        return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
+                                 "Cannot change DMA buffer size while running");
+    }
+    
+    if (size == 0) {
+        // Auto-size based on interface MTU
+        dmaBufferSize_ = 2048; // Default fallback
+        BEATRICE_INFO("DMA buffer size set to auto ({} bytes)", dmaBufferSize_);
+    } else {
+        dmaBufferSize_ = size;
+        BEATRICE_INFO("DMA buffer size set to {} bytes", size);
+    }
+    
+    return Result<void>::success();
+}
+
+size_t AF_XDPBackend::getDMABufferSize() const {
+    return dmaBufferSize_;
+}
+
+std::string AF_XDPBackend::getDMADevice() const {
+    return dmaDevice_;
+}
+
+Result<void> AF_XDPBackend::allocateDMABuffers(size_t count) {
+    if (!dmaAccessEnabled_) {
+        return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
+                                 "DMA access not enabled");
+    }
+    
+    if (dmaBuffers_) {
+        return Result<void>::error(ErrorCode::INVALID_ARGUMENT, 
+                                 "DMA buffers already allocated");
+    }
+    
+    try {
+        // Open DMA device
+        dmaFd_ = open(dmaDevice_.c_str(), O_RDWR);
+        if (dmaFd_ < 0) {
+            return Result<void>::error(ErrorCode::INITIALIZATION_FAILED, 
+                                     "Failed to open DMA device: " + std::string(strerror(errno)));
+        }
+        
+        // Calculate total buffer size
+        size_t totalSize = count * dmaBufferSize_;
+        
+        // Allocate DMA buffers using mmap
+        dmaBuffers_ = mmap(nullptr, totalSize, PROT_READ | PROT_WRITE, 
+                           MAP_SHARED | MAP_LOCKED, dmaFd_, 0);
+        
+        if (dmaBuffers_ == MAP_FAILED) {
+            close(dmaFd_);
+            dmaFd_ = -1;
+            return Result<void>::error(ErrorCode::INITIALIZATION_FAILED, 
+                                     "Failed to allocate DMA buffers: " + std::string(strerror(errno)));
+        }
+        
+        dmaBufferCount_ = count;
+        BEATRICE_INFO("Allocated {} DMA buffers ({} bytes total)", count, totalSize);
+        
+        return Result<void>::success();
+        
+    } catch (const std::exception& e) {
+        if (dmaFd_ >= 0) {
+            close(dmaFd_);
+            dmaFd_ = -1;
+        }
+        return Result<void>::error(ErrorCode::INITIALIZATION_FAILED, e.what());
+    }
+}
+
+Result<void> AF_XDPBackend::freeDMABuffers() {
+    if (!dmaBuffers_) {
+        return Result<void>::success();
+    }
+    
+    try {
+        // Unmap DMA buffers
+        size_t totalSize = dmaBufferCount_ * dmaBufferSize_;
+        if (munmap(dmaBuffers_, totalSize) < 0) {
+            BEATRICE_WARN("Failed to unmap DMA buffers: {}", strerror(errno));
+        }
+        
+        // Close DMA device
+        if (dmaFd_ >= 0) {
+            close(dmaFd_);
+            dmaFd_ = -1;
+        }
+        
+        dmaBuffers_ = nullptr;
+        dmaBufferCount_ = 0;
+        BEATRICE_INFO("DMA buffers freed successfully");
+        
+        return Result<void>::success();
+        
+    } catch (const std::exception& e) {
+        BEATRICE_ERROR("Exception during DMA buffer cleanup: {}", e.what());
+        return Result<void>::error(ErrorCode::CLEANUP_FAILED, e.what());
+    }
 }
 
 } // namespace beatrice
