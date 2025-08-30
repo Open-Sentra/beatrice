@@ -26,6 +26,9 @@ public:
         std::vector<int> cpuAffinity;    ///< CPU affinity for capture threads
         bool enableZeroCopy = true;      ///< Enable zero-copy mode
         size_t maxPacketSize = 65535;    ///< Maximum packet size
+        bool enableDMAAccess = false;    ///< Enable DMA access for zero-copy
+        size_t dmaBufferSize = 0;        ///< DMA buffer size (0 = auto)
+        std::string dmaDevice = "";      ///< DMA device path
     };
 
     struct Statistics {
@@ -61,18 +64,22 @@ public:
     virtual bool isHealthy() const = 0;
     virtual Result<void> healthCheck() = 0;
 
+    // Zero-copy DMA access methods
+    virtual bool isZeroCopyEnabled() const = 0;
+    virtual bool isDMAAccessEnabled() const = 0;
+    virtual Result<void> enableZeroCopy(bool enabled) = 0;
+    virtual Result<void> enableDMAAccess(bool enabled, const std::string& device = "") = 0;
+    virtual Result<void> setDMABufferSize(size_t size) = 0;
+    virtual size_t getDMABufferSize() const = 0;
+    virtual std::string getDMADevice() const = 0;
+    virtual Result<void> allocateDMABuffers(size_t count) = 0;
+    virtual Result<void> freeDMABuffers() = 0;
+
 protected:
     ICaptureBackend() = default;
-
     ICaptureBackend(const ICaptureBackend&) = default;
-
     ICaptureBackend(ICaptureBackend&&) noexcept = default;
-
     ICaptureBackend& operator=(const ICaptureBackend&) = default;
-
-    /**
-     * @brief Protected move assignment operator
-     */
     ICaptureBackend& operator=(ICaptureBackend&&) noexcept = default;
 };
 
