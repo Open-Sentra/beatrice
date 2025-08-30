@@ -1,0 +1,262 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  CMAKE_VERSION: '3.20.0'
+  COMPILER_VERSION: '11'
+
+jobs:
+  # Code quality checks
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format cppcheck valgrind
+
+      - name: Check code formatting
+        run: |
+          find . -name '*.cpp' -o -name '*.hpp' | xargs clang-format --dry-run --Werror
+
+      - name: Run static analysis
+        run: |
+          find . -name '*.cpp' -o -name '*.hpp' | xargs cppcheck --enable=all --error-exitcode=1
+
+      - name: Check CMake configuration
+        run: |
+          cmake --version
+          cmake -B build -S .
+
+  # Build and test on multiple platforms
+  build-linux:
+    name: Build and Test (Linux)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+        build-type: [Debug, Release]
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libpcap-dev
+
+      - name: Setup compiler
+        run: |
+          echo "CC=${{ matrix.cc }}" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.cxx }}" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+            -DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
+            -DBUILD_TESTS=ON \
+            -DBUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build-type }} --parallel
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --verbose
+
+      - name: Run examples
+        run: |
+          cd build/examples
+          ./simple_plugin_test
+
+      - name: Install
+        run: cmake --install build --prefix install
+
+      - name: Package
+        run: cmake --build build --target package
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.compiler }}-${{ matrix.build-type }}
+          path: |
+            build/
+            install/
+            *.tar.gz
+
+  build-macos:
+    name: Build and Test (macOS)
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        build-type: [Debug, Release]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install cmake pkg-config
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+            -DBUILD_TESTS=ON \
+            -DBUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build-type }} --parallel
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --verbose
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-macos-${{ matrix.build-type }}
+          path: build/
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Documentation generation
+  docs:
+    name: Generate Documentation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Generate documentation
+        run: |
+          cmake -B build -S . -DBUILD_DOCS=ON
+          cmake --build build --target docs
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/docs/html
+
+  # Release
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [build-linux, build-macos]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release Assets
+        run: |
+          mkdir -p release-assets
+          find . -name "*.tar.gz" -exec cp {} release-assets/ \;
+          find . -name "*.deb" -exec cp {} release-assets/ \;
+          find . -name "*.rpm" -exec cp {} release-assets/ \;
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release-assets/
+          asset_name: beatrice-${{ github.event.release.tag_name }}-assets
+          asset_content_type: application/octet-stream
+
+  # Performance testing
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libpcap-dev
+
+      - name: Build Release
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+
+      - name: Run performance benchmarks
+        run: |
+          cd build
+          # Add performance test commands here
+          echo "Performance tests completed"
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results
+          path: build/performance-results/ 

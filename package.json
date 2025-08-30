@@ -1,0 +1,102 @@
+{
+  "name": "beatrice",
+  "version": "1.0.0",
+  "description": "Zero-copy, low-level, high-performance network driver SDK for capturing and analyzing network traffic with minimal latency",
+  "keywords": [
+    "network",
+    "packet-capture",
+    "af-xdp",
+    "dpdk",
+    "zero-copy",
+    "high-performance",
+    "c++",
+    "sdk",
+    "network-analysis",
+    "network-monitoring"
+  ],
+  "homepage": "https://github.com/open-sentra/beatrice",
+  "bugs": {
+    "url": "https://github.com/open-sentra/beatrice/issues",
+    "email": "devs@opensentra.com"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Open Sentra",
+    "email": "dev@opensentra.com",
+    "url": "https://opensentra.com"
+  },
+  "contributors": [
+    {
+      "name": "Open Sentra",
+      "email": "devs@opensentra.com"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/open-sentra/beatrice.git"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "scripts": {
+    "build": "mkdir -p build && cd build && cmake .. && make -j$(nproc)",
+    "build:debug": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Debug .. && make -j$(nproc)",
+    "build:release": "mkdir -p build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j$(nproc)",
+    "test": "cd build && make test",
+    "clean": "rm -rf build",
+    "install": "cd build && make install",
+    "package": "cd build && make package",
+    "docs": "cd build && make docs",
+    "format": "find . -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i",
+    "lint": "find . -name '*.cpp' -o -name '*.hpp' | xargs cppcheck --enable=all",
+    "check": "npm run format && npm run lint && npm run build && npm run test"
+  },
+  "dependencies": {
+    "cmake": "^3.20.0",
+    "gcc": "^9.0.0",
+    "clang": "^10.0.0"
+  },
+  "devDependencies": {
+    "clang-format": "^14.0.0",
+    "cppcheck": "^2.8.0",
+    "valgrind": "^3.18.0",
+    "gdb": "^10.0.0"
+  },
+  "optionalDependencies": {
+    "nlohmann-json": "^3.11.0",
+    "spdlog": "^1.10.0",
+    "fmt": "^8.1.0"
+  },
+  "config": {
+    "cmake": {
+      "version": "3.20.0",
+      "generator": "Unix Makefiles"
+    },
+    "compiler": {
+      "cxx": "g++",
+      "cxx_standard": "20",
+      "flags": {
+        "debug": "-g -O0 -Wall -Wextra -Wpedantic -fsanitize=address,undefined",
+        "release": "-O3 -DNDEBUG -Wall -Wextra"
+      }
+    }
+  },
+  "files": [
+    "include/",
+    "src/",
+    "examples/",
+    "tests/",
+    "docs/",
+    "cmake/",
+    "CMakeLists.txt",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "maintainers": [
+    {
+      "name": "Open Sentra",
+      "email": "devs@opensentra.com"
+    }
+  ]
+} 
