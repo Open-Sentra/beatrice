@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  beatrice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: beatrice:latest
+    container_name: beatrice-sdk
+    restart: unless-stopped
+    
+    # Network configuration for packet processing
+    network_mode: host
+    privileged: true  # Required for DPDK and network access
+    
+    # Volume mounts for development and testing
+    volumes:
+      - ./data:/opt/beatrice/data
+      - ./logs:/opt/beatrice/logs
+      - ./config:/opt/beatrice/config
+      - /sys/kernel/debug:/sys/kernel/debug:ro  # For eBPF debugging
+      - /proc:/proc:ro
+      - /dev:/dev:ro
+    
+    # Environment variables
+    environment:
+      - BEATRICE_ENV=docker
+      - BEATRICE_LOG_LEVEL=info
+      - DPDK_EAL_ARGS=--lcores=0-3 --huge-dir=/dev/hugepages
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '4.0'
+        reservations:
+          memory: 2G
+          cpus: '2.0'
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "beatrice_cli", "info", "--system"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Labels
+    labels:
+      - "com.beatrice.description=Network Packet Processing SDK"
+      - "com.beatrice.version=1.0.0"
+      - "com.beatrice.maintainer=team@beatrice.dev"
+
+  # Development environment with hot reload
+  beatrice-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    image: beatrice:dev
+    container_name: beatrice-dev
+    restart: unless-stopped
+    
+    # Development mode - mount source code
+    volumes:
+      - .:/opt/beatrice
+      - ./build:/opt/beatrice/build
+      - ./data:/opt/beatrice/data
+      - ./logs:/opt/beatrice/logs
+    
+    # Development environment
+    environment:
+      - BEATRICE_ENV=development
+      - BEATRICE_LOG_LEVEL=debug
+      - CMAKE_BUILD_TYPE=Debug
+    
+    # Interactive development
+    stdin_open: true
+    tty: true
+    
+    # Command for development
+    command: ["/bin/bash"]
+    
+    labels:
+      - "com.beatrice.description=Development Environment"
+      - "com.beatrice.version=1.0.0-dev"
+
+  # Testing environment
+  beatrice-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: beatrice:test
+    container_name: beatrice-test
+    restart: unless-stopped
+    
+    # Test-specific configuration
+    environment:
+      - BEATRICE_ENV=testing
+      - BEATRICE_LOG_LEVEL=debug
+      - BEATRICE_TEST_MODE=true
+    
+    # Test volumes
+    volumes:
+      - ./tests:/opt/beatrice/tests
+      - ./test-results:/opt/beatrice/test-results
+    
+    # Test command
+    command: ["beatrice_cli", "test", "--backend", "all", "--output-file", "/opt/beatrice/test-results/results.csv"]
+    
+    labels:
+      - "com.beatrice.description=Testing Environment"
+      - "com.beatrice.version=1.0.0-test"
+
+  # Performance testing environment
+  beatrice-benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: beatrice:benchmark
+    container_name: beatrice-benchmark
+    restart: unless-stopped
+    
+    # Benchmark configuration
+    environment:
+      - BEATRICE_ENV=benchmark
+      - BEATRICE_LOG_LEVEL=info
+      - BEATRICE_BENCHMARK_MODE=true
+    
+    # Benchmark volumes
+    volumes:
+      - ./benchmarks:/opt/beatrice/benchmarks
+      - ./benchmark-results:/opt/beatrice/benchmark-results
+    
+    # Benchmark command
+    command: ["beatrice_cli", "benchmark", "--backend", "all", "--packets", "1000000", "--save-results", "/opt/beatrice/benchmark-results/benchmark.csv"]
+    
+    labels:
+      - "com.beatrice.description=Benchmark Environment"
+      - "com.beatrice.version=1.0.0-benchmark"
+
+networks:
+  default:
+    name: beatrice-network
+    driver: bridge
+
+volumes:
+  data:
+    driver: local
+  logs:
+    driver: local
+  config:
+    driver: local
+  test-results:
+    driver: local
+  benchmark-results:
+    driver: local 

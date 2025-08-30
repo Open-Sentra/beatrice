@@ -271,7 +271,24 @@ graph LR
 
 ## Installation
 
-### Prerequisites
+### Docker (Recommended)
+
+The easiest way to get started with Beatrice is using Docker:
+
+```bash
+# Build and run with Docker
+docker build -t beatrice:latest .
+docker run --rm -it --privileged --network host beatrice:latest
+
+# Or use Docker Compose
+docker-compose up -d beatrice
+```
+
+For detailed Docker instructions, see [README-Docker.md](README-Docker.md).
+
+### Manual Installation
+
+#### Prerequisites
 
 - **C++20 compatible compiler** (GCC 10+, Clang 12+)
 - **CMake 3.16+**
