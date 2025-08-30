@@ -65,7 +65,8 @@
   "optionalDependencies": {
     "nlohmann-json": "^3.11.0",
     "spdlog": "^1.10.0",
-    "fmt": "^8.1.0"
+    "fmt": "^8.1.0",
+    "dpdk": "^22.0.0"
   },
   "config": {
     "cmake": {

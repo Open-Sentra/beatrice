@@ -38,6 +38,19 @@ find_package(nlohmann_json REQUIRED)
 # Find libbpf
 pkg_check_modules(LIBBPF REQUIRED libbpf)
 
+# Find DPDK
+option(ENABLE_DPDK "Enable DPDK support" ON)
+if(ENABLE_DPDK)
+    pkg_check_modules(DPDK REQUIRED libdpdk)
+    if(DPDK_FOUND)
+        message(STATUS "DPDK found: ${DPDK_VERSION}")
+        add_definitions(-DENABLE_DPDK)
+    else()
+        message(WARNING "DPDK not found, DPDK backend will be disabled")
+        set(ENABLE_DPDK OFF)
+    endif()
+endif()
+
 # Find BPF tools
 find_program(CLANG clang)
 find_program(LLVM_STRIP llvm-strip)
@@ -73,6 +86,9 @@ add_library(beatrice_core SHARED
     src/PluginManager.cpp
     src/BeatriceContext.cpp
     src/AF_XDPBackend.cpp
+    src/DPDKBackend.cpp
+    src/PMDBackend.cpp
+    src/AF_PacketBackend.cpp
     src/Logger.cpp
     src/Config.cpp
     src/Metrics.cpp
@@ -85,7 +101,7 @@ set_target_properties(beatrice_core PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
     OUTPUT_NAME beatrice_core
-    PUBLIC_HEADER "include/beatrice/BeatriceContext.hpp;include/beatrice/ICaptureBackend.hpp;include/beatrice/IPacketPlugin.hpp;include/beatrice/Packet.hpp;include/beatrice/PluginManager.hpp;include/beatrice/AF_XDPBackend.hpp"
+    PUBLIC_HEADER "include/beatrice/BeatriceContext.hpp;include/beatrice/ICaptureBackend.hpp;include/beatrice/IPacketPlugin.hpp;include/beatrice/Packet.hpp;include/beatrice/PluginManager.hpp;include/beatrice/AF_XDPBackend.hpp;include/beatrice/DPDKBackend.hpp;include/beatrice/PMDBackend.hpp;include/beatrice/AF_PacketBackend.hpp"
 )
 
 # Link libraries
@@ -97,6 +113,13 @@ target_link_libraries(beatrice_core
         nlohmann_json::nlohmann_json
         ${LIBBPF_LIBRARIES}
 )
+
+# Link DPDK if enabled
+if(ENABLE_DPDK AND DPDK_FOUND)
+    target_link_libraries(beatrice_core PRIVATE ${DPDK_LIBRARIES})
+    target_include_directories(beatrice_core PRIVATE ${DPDK_INCLUDE_DIRS})
+    target_compile_options(beatrice_core PRIVATE ${DPDK_CFLAGS_OTHER})
+endif()
 
 # Compiler-specific flags
 target_compile_features(beatrice_core PRIVATE cxx_std_20)
