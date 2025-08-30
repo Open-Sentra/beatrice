@@ -32,6 +32,8 @@ Beatrice is a network packet processing SDK designed for high-performance networ
 - **Production Ready**: Comprehensive error handling and reliability features
 - **Modular Design**: Plugin-based architecture for extensibility
 - **Cross-Platform**: Linux and macOS support with consistent APIs
+- **Command Line Interface**: Powerful CLI for easy testing and development
+- **Zero-Copy DMA Access**: Advanced memory management for maximum performance
 
 ## Architecture
 
@@ -277,6 +279,21 @@ graph LR
 - **libbpf-dev** (for eBPF/XDP support)
 - **DPDK 22.0+** (optional, for DPDK backend)
 
+### CLI Installation
+
+The Beatrice CLI (`beatrice_cli`) is automatically installed with the main package:
+
+```bash
+# Install from source (includes CLI)
+sudo make install
+
+# CLI is installed to /usr/local/bin/beatrice_cli
+which beatrice_cli
+
+# Test CLI installation
+beatrice_cli --help
+```
+
 ### System Requirements
 
 | Component | Minimum | Recommended |
@@ -345,7 +362,28 @@ sudo make install
 
 ## Quick Start
 
-### Basic Usage
+### Command Line Interface (CLI)
+
+Beatrice provides a comprehensive command-line interface for easy testing and development:
+
+```bash
+# Show help
+beatrice_cli --help
+
+# Capture packets using AF_PACKET backend
+sudo beatrice_cli capture --backend af_packet --interface lo --duration 30
+
+# Show backend capabilities
+beatrice_cli info --capabilities
+
+# Run performance benchmarks
+beatrice_cli benchmark --backend dpdk --packets 1000000
+
+# Test all backends
+beatrice_cli test --backend all
+```
+
+### Basic Usage (C++)
 
 ```cpp
 #include "beatrice/BeatriceContext.hpp"
@@ -660,6 +698,195 @@ Once you're comfortable with local testing:
 4. **Production deployment**: Deploy on systems with physical NICs
 
 Remember: Local testing provides a solid foundation for understanding Beatrice's capabilities, even without physical network hardware!
+
+## Command Line Interface
+
+Beatrice includes a powerful command-line interface (`beatrice_cli`) that provides easy access to all features without writing code.
+
+### CLI Commands
+
+#### `capture` - Packet Capture
+Capture network packets using any backend with real-time statistics.
+
+```bash
+# Basic capture with AF_PACKET backend
+sudo beatrice_cli capture --backend af_packet --interface lo --duration 30
+
+# High-performance capture with DPDK backend
+sudo beatrice_cli capture --backend dpdk --interface eth0 --count 10000
+
+# Zero-copy capture with PMD backend
+sudo beatrice_cli capture --backend pmd --interface dpdk_tap0 --zero-copy
+
+# Capture with DMA access
+sudo beatrice_cli capture --backend af_xdp --interface eth0 --dma-device /dev/dma0
+```
+
+**Options:**
+- `--backend`: Backend type (af_packet, dpdk, pmd, af_xdp)
+- `--interface`: Network interface name
+- `--duration`: Capture duration in seconds (0 = infinite)
+- `--count`: Maximum packets to capture
+- `--zero-copy`: Enable zero-copy mode
+- `--dma-device`: DMA device for zero-copy operations
+- `--output-file`: Save captured packets to file
+- `--filter`: BPF filter expression
+
+#### `info` - System Information
+Display system and backend information.
+
+```bash
+# Show all backend capabilities
+beatrice_cli info --capabilities
+
+# Show system information
+beatrice_cli info --system
+
+# Show network interfaces
+beatrice_cli info --interfaces
+
+# Show DPDK information
+beatrice_cli info --dpdk
+
+# Show specific backend info
+beatrice_cli info --backend dpdk
+```
+
+#### `benchmark` - Performance Testing
+Run performance benchmarks on different backends.
+
+```bash
+# Benchmark all backends
+beatrice_cli benchmark --backend all --packets 1000000
+
+# Benchmark specific backend
+beatrice_cli benchmark --backend dpdk --interface eth0 --duration 30
+
+# Benchmark with zero-copy
+beatrice_cli benchmark --backend af_xdp --zero-copy --packets 500000
+```
+
+#### `test` - Backend Testing
+Run comprehensive tests on backends.
+
+```bash
+# Test all backends
+beatrice_cli test --backend all
+
+# Test specific backend
+beatrice_cli test --backend af_packet
+
+# Test zero-copy functionality
+beatrice_cli test --backend dpdk --zero-copy
+
+# Test DMA access
+beatrice_cli test --backend pmd --dma-access
+```
+
+#### `config` - Configuration Management
+Manage Beatrice configuration.
+
+```bash
+# Show current configuration
+beatrice_cli config --show
+
+# Set configuration value
+beatrice_cli config --set network.interface=eth0
+
+# Load configuration from file
+beatrice_cli config --load config.json
+
+# Save configuration to file
+beatrice_cli config --save config.json
+```
+
+### CLI Examples
+
+#### Example 1: Local Development Testing
+```bash
+# Test AF_PACKET backend on loopback
+ping -c 10 127.0.0.1 &  # Generate test traffic
+sudo beatrice_cli capture --backend af_packet --interface lo --duration 15
+```
+
+#### Example 2: Performance Comparison
+```bash
+# Compare AF_PACKET vs DPDK performance
+echo "=== AF_PACKET Performance ==="
+sudo beatrice_cli benchmark --backend af_packet --interface lo --packets 100000
+
+echo "=== DPDK Performance ==="
+sudo beatrice_cli benchmark --backend dpdk --interface eth0 --packets 100000
+```
+
+#### Example 3: Zero-Copy Testing
+```bash
+# Test zero-copy capabilities
+beatrice_cli info --backend af_xdp --capabilities
+
+# Test zero-copy capture
+sudo beatrice_cli capture --backend af_xdp --interface eth0 --zero-copy --duration 30
+```
+
+#### Example 4: DMA Access Testing
+```bash
+# Test DMA access functionality
+beatrice_cli test --backend pmd --dma-access
+
+# Capture with DMA buffers
+sudo beatrice_cli capture --backend pmd --interface dpdk_tap0 \
+    --dma-device /dev/dma0 --dma-buffer-size 4096
+```
+
+### CLI Configuration
+
+#### Global Options
+- `-h, --help`: Show help message
+- `-v, --verbose`: Enable verbose output
+- `-q, --quiet`: Suppress non-error output
+- `--log-level`: Set log level (debug, info, warn, error)
+- `--config-file`: Load configuration from file
+
+#### Output Formats
+- **Text**: Human-readable output (default)
+- **JSON**: Machine-readable output for automation
+- **CSV**: Tabular data for analysis
+
+#### Logging
+The CLI provides comprehensive logging with configurable levels:
+- **Debug**: Detailed debugging information
+- **Info**: General information and progress
+- **Warn**: Warning messages
+- **Error**: Error messages and failures
+
+### CLI Best Practices
+
+1. **Start Simple**: Begin with basic commands and gradually add complexity
+2. **Use Verbose Mode**: Enable `-v` flag for detailed debugging
+3. **Test Locally**: Use loopback interface for initial testing
+4. **Monitor Resources**: Check system resources during performance tests
+5. **Save Results**: Use `--output-file` to save capture results
+6. **Validate Configuration**: Use `config --validate` before production use
+
+### CLI Troubleshooting
+
+#### Common Issues
+- **Permission Denied**: Use `sudo` for operations requiring root privileges
+- **Interface Not Found**: Verify interface exists with `ip link show`
+- **Backend Initialization Failed**: Check system requirements and dependencies
+- **No Packets Captured**: Ensure traffic is being generated on the interface
+
+#### Debug Commands
+```bash
+# Check system information
+beatrice_cli info --system
+
+# Verify backend capabilities
+beatrice_cli info --capabilities
+
+# Test with verbose output
+beatrice_cli -v capture --backend af_packet --interface lo --duration 5
+```
 
 ### Backend Selection
 

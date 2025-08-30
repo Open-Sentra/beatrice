@@ -154,8 +154,14 @@ if(BUILD_DOCS)
     add_subdirectory(docs)
 endif()
 
+# CLI executable
+add_executable(beatrice_cli src/beatrice_cli.cpp)
+target_link_libraries(beatrice_cli PRIVATE beatrice_core fmt::fmt)
+target_include_directories(beatrice_cli PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_features(beatrice_cli PRIVATE cxx_std_20)
+
 # Install rules
-install(TARGETS beatrice_core beatrice
+install(TARGETS beatrice_core beatrice beatrice_cli
     EXPORT BeatriceTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
