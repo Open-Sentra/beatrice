@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wall -Wextra -Wl,--dependency-file=CMakeFiles/zero_copy_dma_test.dir/link.d CMakeFiles/zero_copy_dma_test.dir/zero_copy_dma_test.cpp.o -o zero_copy_dma_test  -Wl,-rpath,/home/yasinldev/Documents/beatrice/build: ../libbeatrice_core.so.1.0.0 /usr/lib64/libfmt.so.11.1.4

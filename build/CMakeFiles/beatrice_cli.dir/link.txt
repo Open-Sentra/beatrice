@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wall -Wextra -Wl,--dependency-file=CMakeFiles/beatrice_cli.dir/link.d CMakeFiles/beatrice_cli.dir/src/beatrice_cli.cpp.o -o beatrice_cli  -Wl,-rpath,/home/yasinldev/Documents/beatrice/build: libbeatrice_core.so.1.0.0 /usr/lib64/libfmt.so.11.1.4

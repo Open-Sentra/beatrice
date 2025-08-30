@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wall -Wextra -Wl,--dependency-file=CMakeFiles/plugin_test.dir/link.d CMakeFiles/plugin_test.dir/plugin_test.cpp.o -o plugin_test  -Wl,-rpath,/home/yasinldev/Documents/beatrice/build: ../libbeatrice_core.so.1.0.0

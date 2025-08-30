@@ -257,3 +257,36 @@ target_compile_features(zero_copy_dma_test PRIVATE cxx_std_20)
 install(TARGETS zero_copy_dma_test
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/beatrice/examples
 )
+
+# Telemetry test
+add_executable(telemetry_test
+    telemetry_test.cpp
+)
+
+# Set properties
+set_target_properties(telemetry_test PROPERTIES
+    OUTPUT_NAME telemetry_test
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
+)
+
+# Link libraries
+target_link_libraries(telemetry_test
+    PRIVATE
+        beatrice_core
+        fmt::fmt
+        nlohmann_json::nlohmann_json
+)
+
+# Set include directories
+target_include_directories(telemetry_test
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+# Set compile features
+target_compile_features(telemetry_test PRIVATE cxx_std_20)
+
+# Install Telemetry test
+install(TARGETS telemetry_test
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/beatrice/examples
+)

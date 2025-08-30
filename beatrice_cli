@@ -1,0 +1,19 @@
+[2025-08-31 01:49:09.900] [info] [47267] === XDPLoader constructor called ===
+[2025-08-31 01:49:09.900] [info] [47267] TEST: Testing basic operations...
+[2025-08-31 01:49:09.900] [info] [47267] TEST: Vector operations OK
+[2025-08-31 01:49:09.900] [info] [47267] TEST: Mutex operations OK
+[2025-08-31 01:49:09.900] [info] [47267] === AF_XDPBackend constructor START ===
+[2025-08-31 01:49:09.900] [info] [47267] === AF_XDPBackend constructor END ===
+[2025-08-31 01:49:09.900] [info] [47267] Cleaning up XDP loader
+[2025-08-31 01:52:05.343] [info] [47387] Zero-copy mode enabled
+[2025-08-31 01:52:05.343] [info] [47387] Initializing Beatrice context
+[2025-08-31 01:52:05.343] [info] [47387] Beatrice context initialized successfully
+[2025-08-31 01:52:05.343] [info] [47387] Starting Beatrice context
+[2025-08-31 01:52:05.343] [info] [47387] Running in single-threaded mode with batch size 64
+[2025-08-31 01:52:15.428] [info] [47387] Received signal 2, shutting down
+[2025-08-31 01:52:19.298] [info] [47387] Received signal 2, shutting down
+[2025-08-31 01:52:20.068] [info] [47387] Received signal 2, shutting down
+[2025-08-31 01:52:20.250] [info] [47387] Received signal 2, shutting down
+[2025-08-31 01:52:20.410] [info] [47387] Received signal 2, shutting down
+[2025-08-31 01:52:20.602] [info] [47387] Received signal 2, shutting down
+[2025-08-31 01:52:23.510] [info] [47387] Received signal 1, shutting down

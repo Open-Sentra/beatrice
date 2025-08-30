@@ -7,6 +7,7 @@
 #include "beatrice/Logger.hpp"
 #include "beatrice/Config.hpp"
 #include "beatrice/Metrics.hpp"
+#include "beatrice/Telemetry.hpp"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -44,7 +45,8 @@ void printUsage(const char* programName) {
               << "  benchmark   Run performance benchmarks\n"
               << "  test        Run backend tests\n"
               << "  info        Show system and backend information\n"
-              << "  config      Manage configuration\n\n"
+              << "  config      Manage configuration\n"
+              << "  telemetry   Manage telemetry and metrics\n\n"
               << "Global Options:\n"
               << "  -h, --help              Show this help message\n"
               << "  -v, --verbose           Enable verbose output\n"
@@ -165,6 +167,33 @@ void printConfigHelp() {
               << "Examples:\n"
               << "  beatrice config --show\n"
               << "  beatrice config --set network.interface=eth0\n";
+}
+
+void printTelemetryHelp() {
+    std::cout << "Telemetry Command - Manage telemetry and metrics\n\n"
+              << "Usage: beatrice telemetry [OPTIONS]\n\n"
+              << "Options:\n"
+              << "  -s, --show               Show telemetry status and metrics\n"
+              << "  --level=LEVEL            Set telemetry level (basic, standard, advanced, debug)\n"
+              << "  --enable-backend=BACKEND Enable telemetry backend (prometheus, influxdb, jaeger, custom)\n"
+              << "  --disable-backend=BACKEND Disable telemetry backend\n"
+              << "  --export-metrics=FORMAT  Export metrics in format (prometheus, json)\n"
+              << "  --export-events          Export telemetry events\n"
+              << "  --export-health          Export system health status\n"
+              << "  --performance=NAME       Start/stop performance measurement\n"
+              << "  --health=COMPONENT       Report component health status\n"
+              << "  --context=KEY=VALUE     Set telemetry context\n"
+              << "  --trace=NAME             Start/stop tracing\n"
+              << "  --flush                  Flush telemetry data\n"
+              << "  --clear                  Clear telemetry data\n"
+              << "  --output-file=FILE      Save output to file\n\n"
+              << "Examples:\n"
+              << "  beatrice telemetry --show\n"
+              << "  beatrice telemetry --level=advanced\n"
+              << "  beatrice telemetry --export-metrics=prometheus\n"
+              << "  beatrice telemetry --export-health\n"
+              << "  beatrice telemetry --performance=packet_processing\n"
+              << "  beatrice telemetry --health=network_interface=true\n";
 }
 
 std::unique_ptr<ICaptureBackend> createBackend(const std::string& backendType) {
@@ -1411,6 +1440,287 @@ void configCommand(const std::vector<std::string>& args) {
     }
 }
 
+void telemetryCommand(const std::vector<std::string>& args) {
+    std::string action = "show";
+    std::string level = "";
+    std::string backend = "";
+    std::string format = "";
+    std::string performanceName = "";
+    std::string healthComponent = "";
+    std::string contextKey = "";
+    std::string contextValue = "";
+    std::string traceName = "";
+    std::string outputFile = "";
+    bool enableBackend = true;
+    
+    // Parse options
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (args[i] == "--help" || args[i] == "-h") {
+            printTelemetryHelp();
+            return;
+        } else if (args[i] == "--show" || args[i] == "-s") {
+            action = "show";
+        } else if (args[i].substr(0, 8) == "--level=") {
+            action = "set_level";
+            level = args[i].substr(8);
+        } else if (args[i].substr(0, 17) == "--enable-backend=") {
+            action = "enable_backend";
+            backend = args[i].substr(17);
+            enableBackend = true;
+        } else if (args[i].substr(0, 18) == "--disable-backend=") {
+            action = "disable_backend";
+            backend = args[i].substr(18);
+            enableBackend = false;
+        } else if (args[i].substr(0, 19) == "--export-metrics=") {
+            action = "export_metrics";
+            format = args[i].substr(19);
+        } else if (args[i] == "--export-events") {
+            action = "export_events";
+        } else if (args[i] == "--export-health") {
+            action = "export_health";
+        } else if (args[i].substr(0, 14) == "--performance=") {
+            action = "performance";
+            performanceName = args[i].substr(14);
+        } else if (args[i].substr(0, 9) == "--health=") {
+            action = "health";
+            healthComponent = args[i].substr(9);
+        } else if (args[i].substr(0, 11) == "--context=") {
+            action = "context";
+            std::string kv = args[i].substr(11);
+            size_t pos = kv.find('=');
+            if (pos != std::string::npos) {
+                contextKey = kv.substr(0, pos);
+                contextValue = kv.substr(pos + 1);
+            }
+        } else if (args[i].substr(0, 8) == "--trace=") {
+            action = "trace";
+            traceName = args[i].substr(8);
+        } else if (args[i] == "--flush") {
+            action = "flush";
+        } else if (args[i] == "--clear") {
+            action = "clear";
+        } else if (args[i].substr(0, 15) == "--output-file=") {
+            outputFile = args[i].substr(15);
+        }
+    }
+    
+    std::cout << "=== Beatrice Telemetry & Metrics Management ===" << std::endl;
+    
+    try {
+        if (action == "show") {
+            std::cout << "Telemetry Status:" << std::endl;
+            std::cout << std::string(50, '-') << std::endl;
+            
+            // Show current telemetry level
+            std::cout << "Level: " << static_cast<int>(telemetry::getLevel()) << std::endl;
+            
+            // Show enabled backends
+            std::cout << "Backends:" << std::endl;
+            std::cout << "  Prometheus: " << (telemetry::isHealthy("prometheus") ? "Enabled" : "Disabled") << std::endl;
+            std::cout << "  InfluxDB: " << (telemetry::isHealthy("influxdb") ? "Enabled" : "Disabled") << std::endl;
+            std::cout << "  Jaeger: " << (telemetry::isHealthy("jaeger") ? "Enabled" : "Disabled") << std::endl;
+            
+            // Show system health
+            std::cout << "System Health:" << std::endl;
+            std::cout << "  Overall: " << (telemetry::isHealthy("system") ? "Healthy" : "Unhealthy") << std::endl;
+            
+        } else if (action == "set_level") {
+            if (level.empty()) {
+                std::cout << "Error: No level specified" << std::endl;
+                return;
+            }
+            
+            TelemetryLevel telemetryLevel;
+            if (level == "basic") {
+                telemetryLevel = TelemetryLevel::BASIC;
+            } else if (level == "standard") {
+                telemetryLevel = TelemetryLevel::STANDARD;
+            } else if (level == "advanced") {
+                telemetryLevel = TelemetryLevel::ADVANCED;
+            } else if (level == "debug") {
+                telemetryLevel = TelemetryLevel::DEBUG;
+            } else {
+                std::cout << "Error: Invalid level '" << level << "'. Valid levels: basic, standard, advanced, debug" << std::endl;
+                return;
+            }
+            
+            telemetry::setLevel(telemetryLevel);
+            std::cout << "Telemetry level set to: " << level << std::endl;
+            
+        } else if (action == "enable_backend" || action == "disable_backend") {
+            if (backend.empty()) {
+                std::cout << "Error: No backend specified" << std::endl;
+                return;
+            }
+            
+            TelemetryBackend telemetryBackend;
+            if (backend == "prometheus") {
+                telemetryBackend = TelemetryBackend::PROMETHEUS;
+            } else if (backend == "influxdb") {
+                telemetryBackend = TelemetryBackend::INFLUXDB;
+            } else if (backend == "jaeger") {
+                telemetryBackend = TelemetryBackend::JAEGER;
+            } else if (backend == "custom") {
+                telemetryBackend = TelemetryBackend::CUSTOM;
+            } else {
+                std::cout << "Error: Invalid backend '" << backend << "'. Valid backends: prometheus, influxdb, jaeger, custom" << std::endl;
+                return;
+            }
+            
+            telemetry::enableBackend(telemetryBackend, enableBackend);
+            std::cout << "Backend " << backend << " " << (enableBackend ? "enabled" : "disabled") << std::endl;
+            
+        } else if (action == "export_metrics") {
+            if (format.empty()) {
+                format = "prometheus";
+            }
+            
+            TelemetryBackend exportBackend;
+            if (format == "prometheus") {
+                exportBackend = TelemetryBackend::PROMETHEUS;
+            } else if (format == "json") {
+                exportBackend = TelemetryBackend::CUSTOM;
+            } else {
+                std::cout << "Error: Invalid format '" << format << "'. Valid formats: prometheus, json" << std::endl;
+                return;
+            }
+            
+            std::string metrics = telemetry::exportMetrics(exportBackend);
+            
+            if (outputFile.empty()) {
+                std::cout << "Metrics (" << format << "):" << std::endl;
+                std::cout << std::string(50, '-') << std::endl;
+                std::cout << metrics << std::endl;
+            } else {
+                std::ofstream file(outputFile);
+                if (file.is_open()) {
+                    file << metrics;
+                    file.close();
+                    std::cout << "Metrics exported to: " << outputFile << std::endl;
+                } else {
+                    std::cout << "Error: Could not write to file '" << outputFile << "'" << std::endl;
+                }
+            }
+            
+        } else if (action == "export_events") {
+            std::string events = telemetry::exportEvents();
+            
+            if (outputFile.empty()) {
+                std::cout << "Events:" << std::endl;
+                std::cout << std::string(50, '-') << std::endl;
+                std::cout << events << std::endl;
+            } else {
+                std::ofstream file(outputFile);
+                if (file.is_open()) {
+                    file << events;
+                    file.close();
+                    std::cout << "Events exported to: " << outputFile << std::endl;
+                } else {
+                    std::cout << "Error: Could not write to file '" << outputFile << "'" << std::endl;
+                }
+            }
+            
+        } else if (action == "export_health") {
+            std::string health = telemetry::exportHealth();
+            
+            if (outputFile.empty()) {
+                std::cout << "Health Status:" << std::endl;
+                std::cout << std::string(50, '-') << std::endl;
+                std::cout << health << std::endl;
+            } else {
+                std::ofstream file(outputFile);
+                if (file.is_open()) {
+                    file << health;
+                    file.close();
+                    std::cout << "Health status exported to: " << outputFile << std::endl;
+                } else {
+                    std::cout << "Error: Could not write to file '" << outputFile << "'" << std::endl;
+                }
+            }
+            
+        } else if (action == "performance") {
+            if (performanceName.empty()) {
+                std::cout << "Error: No performance measurement name specified" << std::endl;
+                return;
+            }
+            
+            // Start performance measurement
+            telemetry::startPerformanceMeasurement(performanceName);
+            std::cout << "Performance measurement started: " << performanceName << std::endl;
+            
+            // Simulate some work
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            
+            // End performance measurement
+            telemetry::endPerformanceMeasurement(performanceName);
+            double avgTime = telemetry::getAveragePerformance(performanceName);
+            std::cout << "Performance measurement completed: " << performanceName << std::endl;
+            std::cout << "Average time: " << avgTime << " microseconds" << std::endl;
+            
+        } else if (action == "health") {
+            if (healthComponent.empty()) {
+                std::cout << "Error: No health component specified" << std::endl;
+                return;
+            }
+            
+            size_t pos = healthComponent.find('=');
+            if (pos == std::string::npos) {
+                std::cout << "Error: Invalid health format. Use --health=COMPONENT=STATUS" << std::endl;
+                return;
+            }
+            
+            std::string component = healthComponent.substr(0, pos);
+            std::string status = healthComponent.substr(pos + 1);
+            
+            bool healthy = (status == "true" || status == "1" || status == "healthy");
+            telemetry::reportHealth(component, healthy, "Health status updated via CLI");
+            
+            std::cout << "Health status updated: " << component << " = " << (healthy ? "healthy" : "unhealthy") << std::endl;
+            
+        } else if (action == "context") {
+            if (contextKey.empty() || contextValue.empty()) {
+                std::cout << "Error: Invalid context format. Use --context=KEY=VALUE" << std::endl;
+                return;
+            }
+            
+            telemetry::setContext(contextKey, contextValue);
+            std::cout << "Context set: " << contextKey << " = " << contextValue << std::endl;
+            
+        } else if (action == "trace") {
+            if (traceName.empty()) {
+                std::cout << "Error: No trace name specified" << std::endl;
+                return;
+            }
+            
+            // Start trace
+            telemetry::startTrace(traceName);
+            std::cout << "Trace started: " << traceName << std::endl;
+            
+            // Simulate some work
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            
+            // End trace
+            telemetry::endTrace(traceName);
+            std::cout << "Trace completed: " << traceName << std::endl;
+            
+        } else if (action == "flush") {
+            telemetry::flush();
+            std::cout << "Telemetry data flushed" << std::endl;
+            
+        } else if (action == "clear") {
+            telemetry::clear();
+            std::cout << "Telemetry data cleared" << std::endl;
+            
+        } else {
+            std::cout << "Error: Unknown action '" << action << "'" << std::endl;
+            printTelemetryHelp();
+        }
+        
+    } catch (const std::exception& e) {
+        std::cout << "Error: " << e.what() << std::endl;
+    }
+}
+
 int main(int argc, char* argv[]) {
     // Set up signal handling
     signal(SIGINT, signalHandler);
@@ -1475,6 +1785,8 @@ int main(int argc, char* argv[]) {
             infoCommand(args);
         } else if (command == "config") {
             configCommand(args);
+        } else if (command == "telemetry") {
+            telemetryCommand(args);
         } else {
             std::cerr << "Unknown command: " << command << std::endl;
             printUsage(argv[0]);

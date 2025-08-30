@@ -183,6 +183,16 @@ graph TB
   - DMA buffer allocation and management
   - Cross-backend DMA access consistency
 
+- **Advanced Metrics & Telemetry**
+  - Real-time performance monitoring
+  - Distributed tracing and spans
+  - Health status reporting
+  - Custom event collection
+  - Multiple export formats (Prometheus, JSON)
+  - Performance measurement and analysis
+  - Context-aware telemetry
+  - Custom backend integration
+
 ### Plugin System
 
 ```mermaid
@@ -1147,6 +1157,220 @@ make clang-tidy
 # Run static analysis
 make cppcheck
 ```
+
+## Telemetry & Metrics
+
+Beatrice provides comprehensive telemetry and metrics capabilities for monitoring, observability, and performance analysis.
+
+### Metrics System
+
+The metrics system provides real-time performance data collection with multiple metric types:
+
+```cpp
+#include "beatrice/Metrics.hpp"
+
+// Create metrics
+auto packetCounter = metrics::counter("packets_total", "Total packets processed");
+auto latencyGauge = metrics::gauge("latency_ms", "Packet processing latency");
+auto sizeHistogram = metrics::histogram("packet_size", "Packet size distribution");
+
+// Update metrics
+packetCounter->increment();
+latencyGauge->set(15.5);
+sizeHistogram->observe(1500.0);
+```
+
+**Metric Types**:
+- **Counters**: Monotonically increasing values (packets processed, errors)
+- **Gauges**: Current values that can go up or down (CPU usage, memory usage)
+- **Histograms**: Distribution of values (latency, packet sizes)
+
+### Telemetry System
+
+The telemetry system provides distributed tracing, event collection, and performance monitoring:
+
+```cpp
+#include "beatrice/Telemetry.hpp"
+
+// Set telemetry level
+telemetry::setLevel(TelemetryLevel::STANDARD);
+
+// Collect events
+telemetry::collectEvent(TelemetryEvent::EventType::PACKET_RECEIVED, 
+                       "packet_flow", "Packet received from network");
+
+// Performance monitoring
+telemetry::startPerformanceMeasurement("packet_processing");
+// ... process packet ...
+telemetry::endPerformanceMeasurement("packet_processing");
+
+// Health monitoring
+telemetry::reportHealth("network_interface", true, "Interface is healthy");
+```
+
+**Telemetry Features**:
+- **Event Collection**: Capture system events with labels and metrics
+- **Performance Monitoring**: Measure execution time of operations
+- **Health Monitoring**: Track component health status
+- **Distributed Tracing**: Create spans for request flows
+- **Context Management**: Associate metadata with operations
+
+### Tracing with Spans
+
+Use spans to trace packet processing flows:
+
+```cpp
+// Manual span management
+TelemetrySpan span("packet_processing", "Processing network packet");
+span.addLabel("packet_type", "TCP");
+span.addLabel("source_ip", "192.168.1.100");
+span.addMetric("packet_size", 1500.0);
+
+// ... process packet ...
+
+span.setStatus(true, "Packet processed successfully");
+// Span automatically ends when destructed
+
+// Automatic span management with macros
+TELEMETRY_SPAN("auto_packet_processing", "Automatic packet processing");
+TELEMETRY_SPAN_LABEL("packet_type", "UDP");
+TELEMETRY_SPAN_METRIC("packet_size", 512.0);
+TELEMETRY_SPAN_STATUS(true, "Auto span completed");
+```
+
+### Custom Backends
+
+Integrate with external monitoring systems:
+
+```cpp
+// Custom telemetry backend
+telemetry::setCustomBackend([](const TelemetryEvent& event) {
+    // Send to external system (e.g., InfluxDB, Jaeger)
+    std::cout << "Event: " << event.getName() 
+              << " Type: " << static_cast<int>(event.getType()) << std::endl;
+    
+    // Export to your monitoring system
+    exportToMonitoringSystem(event);
+});
+```
+
+### Export Formats
+
+Export metrics and telemetry data in multiple formats:
+
+```cpp
+// Prometheus format
+std::string prometheusMetrics = telemetry::exportMetrics(TelemetryBackend::PROMETHEUS);
+
+// JSON format
+std::string jsonMetrics = telemetry::exportMetrics(TelemetryBackend::CUSTOM);
+
+// Health status
+std::string healthStatus = telemetry::exportHealth();
+
+// Events summary
+std::string eventsSummary = telemetry::exportEvents();
+```
+
+### Performance Monitoring
+
+Monitor system performance in real-time:
+
+```cpp
+// Start performance measurement
+telemetry::startPerformanceMeasurement("packet_processing");
+
+// Simulate packet processing
+std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+// End measurement and get results
+telemetry::endPerformanceMeasurement("packet_processing");
+double avgTime = telemetry::getAveragePerformance("packet_processing");
+
+std::cout << "Average processing time: " << avgTime << " microseconds" << std::endl;
+```
+
+### Health Monitoring
+
+Track component health and system status:
+
+```cpp
+// Report component health
+telemetry::reportHealth("network_interface", true, "Interface is healthy");
+telemetry::reportHealth("packet_processor", true, "Processor running normally");
+telemetry::reportHealth("memory_manager", false, "Memory usage is high");
+
+// Check health status
+if (telemetry::isHealthy("network_interface")) {
+    std::cout << "Network interface is healthy" << std::endl;
+} else {
+    std::cout << "Network interface has issues" << std::endl;
+}
+
+// Export health status
+std::string health = telemetry::exportHealth();
+std::cout << "System health: " << health << std::endl;
+```
+
+### Configuration
+
+Configure telemetry behavior:
+
+```cpp
+// Set telemetry level
+telemetry::setLevel(TelemetryLevel::ADVANCED);  // BASIC, STANDARD, ADVANCED, DEBUG
+
+// Enable specific backends
+telemetry::enableBackend(TelemetryBackend::PROMETHEUS, true);
+telemetry::enableBackend(TelemetryBackend::INFLUXDB, false);
+telemetry::enableBackend(TelemetryBackend::JAEGER, true);
+
+// Set context for correlation
+telemetry::setContext("session_id", "user_session_123");
+telemetry::setContext("request_id", "req_456");
+
+// Get context
+std::string sessionId = telemetry::getContext("session_id");
+```
+
+### Integration Examples
+
+**Prometheus Integration**:
+```cpp
+// Export metrics for Prometheus scraping
+std::string prometheusMetrics = telemetry::exportMetrics(TelemetryBackend::PROMETHEUS);
+
+// Example output:
+// # HELP beatrice_packets_total Total packets processed
+// # TYPE beatrice_packets_total counter
+// beatrice_packets_total 1000
+// # HELP beatrice_latency_ms Packet processing latency
+// # TYPE beatrice_latency_ms gauge
+// beatrice_latency_ms 15.5
+```
+
+**Custom Monitoring System**:
+```cpp
+// Custom backend for your monitoring system
+telemetry::setCustomBackend([](const TelemetryEvent& event) {
+    // Convert to your format
+    nlohmann::json eventData = event.toJson();
+    
+    // Send to your system
+    sendToMonitoringSystem(eventData);
+    
+    // Or log for analysis
+    std::cout << "Event: " << eventData.dump(2) << std::endl;
+});
+```
+
+### Best Practices
+
+1. **Performance Impact**: Use appropriate telemetry levels to minimize overhead
+2. **Event Naming**: Use consistent naming conventions for events and metrics
+3. **Label Management**: Use labels to categorize and filter metrics
+4. **Resource Cleanup**: Ensure proper cleanup of telemetry resources
+5. **Monitoring Integration**: Integrate with your existing monitoring infrastructure
 
 ## Contributing
 

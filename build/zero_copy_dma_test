@@ -1,0 +1,27 @@
+[2025-08-31 01:31:23.967] [info] [44504] === XDPLoader constructor called ===
+[2025-08-31 01:31:23.967] [info] [44504] TEST: Testing basic operations...
+[2025-08-31 01:31:23.967] [info] [44504] TEST: Vector operations OK
+[2025-08-31 01:31:23.967] [info] [44504] TEST: Mutex operations OK
+[2025-08-31 01:31:23.967] [info] [44504] === AF_XDPBackend constructor START ===
+[2025-08-31 01:31:23.967] [info] [44504] === AF_XDPBackend constructor END ===
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode enabled
+[2025-08-31 01:31:23.967] [info] [44504] DMA access enabled for device: /dev/dma0
+[2025-08-31 01:31:23.967] [info] [44504] DMA buffer size set to 4096 bytes
+[2025-08-31 01:31:23.967] [info] [44504] DMA access disabled
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode disabled
+[2025-08-31 01:31:23.967] [info] [44504] Cleaning up XDP loader
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode enabled
+[2025-08-31 01:31:23.967] [info] [44504] DMA access enabled for device: /dev/dma0
+[2025-08-31 01:31:23.967] [info] [44504] DMA buffer size set to 4096 bytes
+[2025-08-31 01:31:23.967] [info] [44504] DMA access disabled
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode disabled
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode enabled
+[2025-08-31 01:31:23.967] [info] [44504] DMA access enabled for device: /dev/dma0
+[2025-08-31 01:31:23.967] [info] [44504] DMA buffer size set to 4096 bytes
+[2025-08-31 01:31:23.967] [info] [44504] DMA access disabled
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode disabled
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode enabled
+[2025-08-31 01:31:23.967] [info] [44504] DMA access enabled for device: /dev/dma0
+[2025-08-31 01:31:23.967] [info] [44504] DMA buffer size set to 4096 bytes
+[2025-08-31 01:31:23.967] [info] [44504] DMA access disabled
+[2025-08-31 01:31:23.967] [info] [44504] Zero-copy mode disabled

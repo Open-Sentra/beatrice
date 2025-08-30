@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -Wall -Wextra -Wl,--dependency-file=CMakeFiles/simple_plugin.dir/link.d -shared -Wl,-soname,libsimple_plugin.so -o libsimple_plugin.so CMakeFiles/simple_plugin.dir/simple_plugin.cpp.o  -Wl,-rpath,/home/yasinldev/Documents/beatrice/build: ../libbeatrice_core.so.1.0.0

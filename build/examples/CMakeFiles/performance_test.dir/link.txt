@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wall -Wextra -Wl,--dependency-file=CMakeFiles/performance_test.dir/link.d CMakeFiles/performance_test.dir/performance_test.cpp.o -o performance_test  -Wl,-rpath,/home/yasinldev/Documents/beatrice/build: ../libbeatrice_core.so.1.0.0

@@ -92,6 +92,7 @@ add_library(beatrice_core SHARED
     src/Logger.cpp
     src/Config.cpp
     src/Metrics.cpp
+    src/Telemetry.cpp
     src/Packet.cpp
     src/XDPLoader.cpp
 )
@@ -101,7 +102,7 @@ set_target_properties(beatrice_core PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
     OUTPUT_NAME beatrice_core
-    PUBLIC_HEADER "include/beatrice/BeatriceContext.hpp;include/beatrice/ICaptureBackend.hpp;include/beatrice/IPacketPlugin.hpp;include/beatrice/Packet.hpp;include/beatrice/PluginManager.hpp;include/beatrice/AF_XDPBackend.hpp;include/beatrice/DPDKBackend.hpp;include/beatrice/PMDBackend.hpp;include/beatrice/AF_PacketBackend.hpp"
+    PUBLIC_HEADER "include/beatrice/BeatriceContext.hpp;include/beatrice/ICaptureBackend.hpp;include/beatrice/IPacketPlugin.hpp;include/beatrice/Packet.hpp;include/beatrice/PluginManager.hpp;include/beatrice/AF_XDPBackend.hpp;include/beatrice/DPDKBackend.hpp;include/beatrice/PMDBackend.hpp;include/beatrice/AF_PacketBackend.hpp;include/beatrice/Telemetry.hpp"
 )
 
 # Link libraries
