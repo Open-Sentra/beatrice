@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wall -Wextra -Wl,--dependency-file=CMakeFiles/dpdk_example.dir/link.d CMakeFiles/dpdk_example.dir/dpdk_example.cpp.o -o dpdk_example  -Wl,-rpath,/home/yasinldev/Documents/beatrice/build: ../libbeatrice_core.so.1.0.0 /usr/lib64/libfmt.so.11.1.4
