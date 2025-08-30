@@ -383,6 +383,284 @@ int main() {
 }
 ```
 
+## Testing Without NIC
+
+Don't have access to a physical network interface card (NIC)? No problem! Beatrice provides several virtual backends that allow you to test and develop locally without requiring real hardware. This is perfect for development, testing, and learning Beatrice's capabilities on laptops, VMs, or cloud instances.
+
+### Supported Virtual Backends
+
+- **`AF_PACKET`**: Works with loopback interface (`lo`) for local packet testing
+- **`TAP/TUN` via PMD**: Virtual network interfaces using DPDK's PMD framework
+- **`PCAP`**: Replay captured network traffic from `.pcap` files
+
+### AF_PACKET Backend Testing (Loopback)
+
+The AF_PACKET backend can capture packets from the loopback interface, making it ideal for local testing without requiring special permissions or hardware.
+
+#### Prerequisites
+- Linux system with loopback interface enabled
+- Beatrice built with examples enabled
+
+#### Step-by-Step Testing
+
+1. **Verify loopback interface exists:**
+   ```bash
+   ip link show lo
+   # Should show: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536
+   ```
+
+2. **Generate test traffic on loopback:**
+   ```bash
+   # Ping localhost to generate ICMP packets
+   ping -c 5 127.0.0.1 &
+   
+   # Or use netcat for TCP traffic
+   nc -l 8080 &
+   echo "test" | nc 127.0.0.1 8080
+   ```
+
+3. **Run the AF_PACKET example:**
+   ```bash
+   cd build/examples
+   sudo ./af_packet_example
+   ```
+
+4. **Expected output:**
+   ```
+   === Beatrice AF_PACKET Backend Example ===
+   1. Backend Information:
+     Name: AF_PACKET Backend
+     Version: v1.0.0
+   
+   2. Available Features:
+     ✓ promiscuous_mode
+     ✓ buffer_size_config
+     ✓ blocking_mode
+     ✓ zero_copy
+   
+   3. Configuring AF_PACKET Backend...
+     ✓ Promiscuous mode enabled
+     ✓ Buffer size set to 128KB
+     ✓ Non-blocking mode enabled
+   
+   6. Initializing AF_PACKET Backend...
+     ✓ AF_PACKET backend initialized successfully
+   
+   7. Starting AF_PACKET Backend...
+     ✓ AF_PACKET backend started successfully
+   
+   9. Running AF_PACKET Backend...
+     Captured 5 packets
+     Total packets: 5, Total bytes: 420
+   ```
+
+#### Troubleshooting
+
+- **Permission denied**: Run with `sudo` - AF_PACKET requires root privileges
+- **Interface not found**: Ensure loopback interface is up (`ip link set lo up`)
+- **No packets captured**: Generate traffic while the example is running
+
+### PMD Backend Testing (TAP Interface)
+
+The PMD backend creates virtual TAP interfaces using DPDK, allowing you to test high-performance packet processing without physical hardware.
+
+#### Prerequisites
+- Root privileges (required for TAP interface creation)
+- DPDK installed and configured
+- Hugepages configured for DPDK
+
+#### Step-by-Step Testing
+
+1. **Configure hugepages for DPDK:**
+   ```bash
+   # Create hugepage mount point
+   sudo mkdir -p /dev/hugepages
+   sudo mount -t hugetlbfs nodev /dev/hugepages
+   
+   # Allocate hugepages (adjust number as needed)
+   echo 1024 | sudo tee /sys/devices/system/node/node*/hugepages/hugepages-2048kB/nr_hugepages
+   ```
+
+2. **Create and configure TAP interface:**
+   ```bash
+   # Create TAP interface
+   sudo ip tuntap add mode tap dpdk_tap0
+   sudo ip link set dpdk_tap0 up
+   sudo ip addr add 192.168.100.1/24 dev dpdk_tap0
+   
+   # Verify interface creation
+   ip link show dpdk_tap0
+   ip addr show dpdk_tap0
+   ```
+
+3. **Run the PMD example:**
+   ```bash
+   cd build/examples
+   sudo ./pmd_example
+   ```
+
+4. **Expected output:**
+   ```
+   === Beatrice PMD Backend Example ===
+   1. Backend Information:
+     Name: PMD Backend
+     Version: v1.0.0
+   
+   2. Available Features:
+     ✓ pmd_type_selection
+     ✓ virtual_device_creation
+     ✓ zero_copy
+     ✓ dma_access
+   
+   3. Configuring PMD Backend...
+     ✓ PMD type set to net_tap
+     ✓ PMD arguments configured
+   
+   6. Initializing PMD Backend...
+     ✓ PMD backend initialized successfully
+   
+   7. Starting PMD Backend...
+     ✓ PMD backend started successfully
+   
+   9. Running PMD Backend...
+     Captured 0 packets (interface is new)
+   ```
+
+5. **Generate test traffic:**
+   ```bash
+   # In another terminal, ping the TAP interface
+   ping -c 5 192.168.100.1
+   ```
+
+#### Troubleshooting
+
+- **EAL initialization failed**: Check hugepages configuration and DPDK installation
+- **TAP interface errors**: Ensure proper permissions and interface configuration
+- **No packets captured**: Verify TAP interface is properly configured and traffic is routed
+
+### PCAP Backend Testing (Traffic Replay)
+
+The PCAP backend allows you to replay captured network traffic, perfect for testing packet processing logic with known data.
+
+#### Prerequisites
+- Sample `.pcap` file (or capture your own)
+- Beatrice built with PCAP support
+
+#### Step-by-Step Testing
+
+1. **Obtain a sample PCAP file:**
+   ```bash
+   # Download sample PCAP from Wireshark
+   wget https://wiki.wireshark.org/SampleCaptures/ -O sample_captures.html
+   
+   # Or use tcpdump to capture local traffic
+   sudo tcpdump -i lo -w test_capture.pcap -c 100
+   ```
+
+2. **Run the PCAP example:**
+   ```bash
+   cd build/examples
+   ./pcap_example test_capture.pcap
+   ```
+
+3. **Expected output:**
+   ```
+   === Beatrice PCAP Backend Example ===
+   1. Backend Information:
+     Name: PCAP Backend
+     Version: v1.0.0
+   
+   2. Available Features:
+     ✓ pcap_file_support
+     ✓ packet_replay
+     ✓ offline_analysis
+   
+   3. Loading PCAP file...
+     ✓ PCAP file loaded successfully
+     ✓ File contains 100 packets
+   
+   4. Processing packets...
+     Processing packet 1/100
+     Processing packet 50/100
+     Processing packet 100/100
+   
+   5. Summary:
+     ✓ Total packets processed: 100
+     ✓ Total bytes processed: 15,420
+     ✓ Processing completed successfully
+   ```
+
+#### Troubleshooting
+
+- **PCAP file not found**: Check file path and permissions
+- **No packets in file**: Verify PCAP file contains valid network traffic
+- **Permission errors**: Ensure read access to PCAP file
+
+### Zero-Copy DMA Access Testing
+
+Test Beatrice's zero-copy DMA access features using the dedicated test program.
+
+#### Step-by-Step Testing
+
+1. **Run the zero-copy DMA test:**
+   ```bash
+   cd build/examples
+   ./zero_copy_dma_test
+   ```
+
+2. **Expected output:**
+   ```
+   === Beatrice Zero-Copy DMA Access Test ===
+   
+   === Testing AF_XDP Backend Zero-Copy DMA Access ===
+   1. Zero-copy status: Enabled
+   2. DMA access status: Disabled
+   3. ✓ Zero-copy enabled successfully
+   4. ✓ DMA access enabled successfully
+   5. ✓ DMA buffer size set successfully
+   6. ✗ Failed to allocate DMA buffers: Failed to open DMA device: No such file or directory
+      (This is expected if DMA device /dev/dma0 doesn't exist)
+   7. DMA buffer size: 4096 bytes
+   8. DMA device: /dev/dap0
+   9. ✓ DMA buffers freed successfully
+   10. ✓ DMA access disabled successfully
+   11. ✓ Zero-copy disabled successfully
+   
+   === Zero-Copy DMA Access Test Summary ===
+   ✓ All backends now support zero-copy DMA access interface
+   ✓ DMA buffer allocation and management implemented
+   ✓ Runtime configuration of zero-copy and DMA features
+   ✓ Proper cleanup and resource management
+   ✓ Error handling for invalid operations
+   ```
+
+### System Requirements Summary
+
+| Backend | Root Required | DPDK Required | Hugepages | Interface Setup | Traffic Source |
+|---------|---------------|---------------|-----------|-----------------|----------------|
+| **AF_PACKET** | ✅ Yes | ❌ No | ❌ No | Loopback (`lo`) | Local traffic |
+| **PMD (TAP)** | ✅ Yes | ✅ Yes | ✅ Yes | TAP interface | Manual traffic |
+| **PCAP** | ❌ No | ❌ No | ❌ No | File input | PCAP file |
+| **Zero-Copy DMA** | ❌ No | ❌ No | ❌ No | N/A | N/A |
+
+### Tips for Local Development
+
+- **Start with AF_PACKET**: Easiest to set up and test locally
+- **Use loopback traffic**: Generate packets with `ping`, `nc`, or custom tools
+- **Monitor system resources**: Check memory usage and CPU utilization
+- **Test error conditions**: Try invalid configurations to test error handling
+- **Use virtual machines**: Perfect for testing different network configurations
+
+### Next Steps
+
+Once you're comfortable with local testing:
+1. **Performance testing**: Measure packet processing rates
+2. **Plugin development**: Create custom packet processors
+3. **Integration testing**: Test with real network applications
+4. **Production deployment**: Deploy on systems with physical NICs
+
+Remember: Local testing provides a solid foundation for understanding Beatrice's capabilities, even without physical network hardware!
+
 ### Backend Selection
 
 ```cpp
