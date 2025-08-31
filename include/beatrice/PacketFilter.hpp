@@ -12,14 +12,8 @@
 
 namespace beatrice {
 
-/**
- * @brief Packet filtering engine with BPF support and custom filters
- */
 class PacketFilter {
 public:
-    /**
-     * @brief Filter types supported by the engine
-     */
     enum class FilterType {
         BPF,            ///< Berkeley Packet Filter
         PROTOCOL,       ///< Protocol-based filtering
@@ -29,9 +23,6 @@ public:
         CUSTOM          ///< Custom filter function
     };
 
-    /**
-     * @brief Filter configuration structure
-     */
     struct FilterConfig {
         FilterType type = FilterType::PROTOCOL;
         std::string expression;          ///< Filter expression (BPF, regex, etc.)
@@ -41,9 +32,6 @@ public:
         std::unordered_map<std::string, std::string> parameters; ///< Additional parameters
     };
 
-    /**
-     * @brief Filter result with metadata
-     */
     struct FilterResult {
         bool passed = false;             ///< Whether packet passed the filter
         std::string filterName;          ///< Name of the filter that processed
@@ -55,53 +43,14 @@ public:
     PacketFilter();
     ~PacketFilter();
 
-    /**
-     * @brief Add a new filter to the chain
-     * @param name Filter name
-     * @param config Filter configuration
-     * @return Result indicating success/failure
-     */
     Result<void> addFilter(const std::string& name, const FilterConfig& config);
 
-    /**
-     * @brief Remove a filter by name
-     * @param name Filter name
-     * @return Result indicating success/failure
-     */
     Result<void> removeFilter(const std::string& name);
-
-    /**
-     * @brief Enable/disable a filter
-     * @param name Filter name
-     * @param enabled Whether to enable the filter
-     * @return Result indicating success/failure
-     */
     Result<void> setFilterEnabled(const std::string& name, bool enabled);
-
-    /**
-     * @brief Apply all active filters to a packet
-     * @param packet Packet to filter
-     * @return Filter result
-     */
     FilterResult applyFilters(const Packet& packet);
-
-    /**
-     * @brief Apply filters to multiple packets
-     * @param packets Vector of packets to filter
-     * @return Vector of filter results
-     */
     std::vector<FilterResult> applyFilters(const std::vector<Packet>& packets);
-
-    /**
-     * @brief Get list of active filters
-     * @return Vector of filter names
-     */
     std::vector<std::string> getActiveFilters() const;
 
-    /**
-     * @brief Get filter statistics
-     * @return Statistics about filter usage
-     */
     struct FilterStats {
         uint64_t packetsProcessed = 0;
         uint64_t packetsPassed = 0;
@@ -110,18 +59,7 @@ public:
         std::unordered_map<std::string, uint64_t> filterCounts;
     };
     FilterStats getStats() const;
-
-    /**
-     * @brief Reset filter statistics
-     */
     void resetStats();
-
-    /**
-     * @brief Set custom filter function
-     * @param name Filter name
-     * @param filterFunc Custom filter function
-     * @return Result indicating success/failure
-     */
     Result<void> setCustomFilter(const std::string& name, 
                                 std::function<bool(const Packet&)> filterFunc);
 
