@@ -51,8 +51,8 @@ private:
     mutable std::shared_mutex registryMutex_;
     std::unordered_map<std::string, ProtocolDefinition> protocols_;
     std::unordered_map<std::string, std::function<ProtocolDefinition()>> factories_;
-    std::unordered_map<std::string, size_t> usageCount_;
-    std::chrono::steady_clock::time_point lastUpdateTime_;
+    mutable std::unordered_map<std::string, size_t> usageCount_;
+    mutable std::chrono::steady_clock::time_point lastUpdateTime_;
     
     void initializeBuiltinProtocols();
 };

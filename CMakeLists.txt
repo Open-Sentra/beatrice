@@ -99,6 +99,8 @@ add_library(beatrice_core SHARED
     src/ThreadPool.cpp
     src/Error.cpp
     src/parser/FieldDefinition.cpp
+    src/parser/ParserResult.cpp
+    src/parser/ProtocolRegistry.cpp
 )
 
 # Set library properties
