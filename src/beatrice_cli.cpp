@@ -861,7 +861,8 @@ void testCommand(const std::vector<std::string>& args) {
             std::cout << "7. Cleanup Test: ";
             try {
                 // Note: shutdown() method doesn't exist in ICaptureBackend interface
-                // This is a placeholder for cleanup operations
+                // TODO: Implement proper cleanup operations (Priority: MEDIUM)
+                // See TODO.md for details - CLI Improvements section
                 std::cout << "PASS" << std::endl;
                 backendResults["cleanup"] = "PASS";
                 passedTests++;

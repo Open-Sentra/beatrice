@@ -543,14 +543,16 @@ bool PMDBackend::isPMDTypeSupported(const std::string& pmdType) const {
 }
 
 bool PMDBackend::createVirtualDevice(const std::string& deviceType, const std::map<std::string, std::string>& params) {
+    // TODO: Implement virtual device creation (Priority: MEDIUM)
+    // See TODO.md for details - Core System Improvements section
     // Virtual devices are created through DPDK EAL arguments
-    // This function is a placeholder for future implementation
     return true;
 }
 
 bool PMDBackend::destroyVirtualDevice(const std::string& deviceName) {
+    // TODO: Implement virtual device destruction (Priority: MEDIUM)
+    // See TODO.md for details - Core System Improvements section
     // Virtual devices are destroyed when DPDK EAL is cleaned up
-    // This function is a placeholder for future implementation
     return true;
 }
 

@@ -325,8 +325,9 @@ std::string TelemetryCollector::exportMetrics(TelemetryBackend backend) const {
         case TelemetryBackend::PROMETHEUS:
             return MetricsRegistry::get().exportPrometheus();
         case TelemetryBackend::INFLUXDB:
-            // TODO: Implement InfluxDB format
-            return "InfluxDB format not yet implemented";
+                // TODO: Implement InfluxDB format (Priority: MEDIUM)
+    // See TODO.md for details
+    return "InfluxDB format not yet implemented";
         default:
             return MetricsRegistry::get().exportJson();
     }
