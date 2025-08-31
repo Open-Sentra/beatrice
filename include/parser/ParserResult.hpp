@@ -109,8 +109,8 @@ struct ParseResult {
     size_t parsedBytes;
     std::vector<uint8_t> rawData;
     
-    ParseResult() : status(ParseStatus::SUCCESS), packetLength(0), parsedBytes(0), 
-                   totalParseTime(0), totalValidationTime(0) {}
+    ParseResult() : status(ParseStatus::SUCCESS), totalParseTime(0), totalValidationTime(0), 
+                   packetLength(0), parsedBytes(0) {}
     
     bool isSuccess() const { return status == ParseStatus::SUCCESS; }
     bool hasField(const std::string& name) const { return fields.find(name) != fields.end(); }

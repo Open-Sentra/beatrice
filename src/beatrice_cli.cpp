@@ -8,6 +8,9 @@
 #include "beatrice/Config.hpp"
 #include "beatrice/Metrics.hpp"
 #include "beatrice/Telemetry.hpp"
+#include "parser/ProtocolParser.hpp"
+#include "parser/FieldDefinition.hpp"
+
 #include <iostream>
 #include <memory>
 #include <string>
@@ -48,7 +51,8 @@ void printUsage(const char* programName) {
               << "  config      Manage configuration\n"
               << "  telemetry   Manage telemetry and metrics\n"
               << "  filter      Manage packet filters\n"
-              << "  thread      Manage thread pool and load balancing\n\n"
+              << "  thread      Manage thread pool and load balancing\n"
+              << "  parser      Manage protocol parsing\n\n"
               << "Global Options:\n"
               << "  -h, --help              Show this help message\n"
               << "  -v, --verbose           Enable verbose output\n"
@@ -169,6 +173,32 @@ void printConfigHelp() {
               << "Examples:\n"
               << "  beatrice config --show\n"
               << "  beatrice config --set network.interface=eth0\n";
+}
+
+void printParserHelp() {
+    std::cout << "Parser Command - Manage protocol parsing\n\n"
+              << "Usage: beatrice parser [OPTIONS] ACTION [ARGS...]\n\n"
+              << "Actions:\n"
+              << "  --help              Show this help message\n"
+              << "  --protocol=NAME     Parse specific protocol\n"
+              << "  --packet-file=FILE  Parse packet from file\n"
+              << "  --list-protocols    List available protocols\n"
+              << "  --create-protocol   Create custom protocol\n"
+              << "  --validate=FILE     Validate protocol definition\n"
+              << "  --parse=DATA        Parse raw packet data\n"
+              << "  --format=FORMAT     Output format (json, xml, csv, human)\n"
+              << "  --show-stats        Show parser statistics\n"
+              << "  --clear-stats       Clear parser statistics\n\n"
+              << "Protocol Options:\n"
+              << "  --field=NAME:TYPE:OFFSET:LENGTH  Define protocol field\n"
+              << "  --endianness=TYPE   Set field endianness (network, little, big)\n"
+              << "  --required          Field is required\n"
+              << "  --optional          Field is optional\n\n"
+              << "Examples:\n"
+              << "  beatrice parser --list-protocols\n"
+              << "  beatrice parser --protocol tcp --parse 4500001400004000\n"
+              << "  beatrice parser --create-protocol CUSTOM --field header:uint32:0:4\n"
+              << "  beatrice parser --validate protocol.json\n";
 }
 
 void printThreadHelp() {
@@ -432,7 +462,7 @@ void captureCommand(const std::vector<std::string>& args) {
             
             // Print statistics periodically
             if (packetCount % (statsInterval * 10) == 0) {
-                auto stats = backend->getStatistics();
+                // auto stats = backend->getStatistics();
                 std::cout << "Captured: " << packetCount << " packets, " 
                          << totalBytes << " bytes" << std::endl;
             }
@@ -820,8 +850,6 @@ void testCommand(const std::vector<std::string>& args) {
                 totalTests++;
                 std::cout << "5. Stress Test: ";
                 try {
-                    bool stressPassed = true;
-                    
                     // Test rapid enable/disable cycles
                     for (int i = 0; i < 100; ++i) {
                         backend->enableZeroCopy(i % 2 == 0);
@@ -847,7 +875,7 @@ void testCommand(const std::vector<std::string>& args) {
             totalTests++;
             std::cout << "6. Statistics Test: ";
             try {
-                auto stats = backend->getStatistics();
+                // auto stats = backend->getStatistics();
                 std::cout << "PASS" << std::endl;
                 backendResults["statistics"] = "PASS";
                 passedTests++;
@@ -1492,6 +1520,193 @@ void configCommand(const std::vector<std::string>& args) {
     }
 }
 
+void parserCommand(const std::vector<std::string>& args) {
+    if (args.empty() || args[0] == "--help" || args[0] == "-h") {
+        printParserHelp();
+        return;
+    }
+    
+    try {
+        // Parse command line options
+        std::string protocolName;
+        std::string packetFile;
+        std::string rawData;
+        std::string outputFormat = "human";
+        bool listProtocols = false;
+        bool createProtocol = false;
+        bool validateProtocol = false;
+        bool showStats = false;
+        bool clearStats = false;
+        std::vector<std::string> fieldDefinitions;
+        
+        for (size_t i = 0; i < args.size(); ++i) {
+            std::string arg = args[i];
+            
+            if (arg.substr(0, 11) == "--protocol=") {
+                protocolName = arg.substr(11);
+            } else if (arg.substr(0, 14) == "--packet-file=") {
+                packetFile = arg.substr(14);
+            } else if (arg.substr(0, 8) == "--parse=") {
+                rawData = arg.substr(8);
+            } else if (arg.substr(0, 9) == "--format=") {
+                outputFormat = arg.substr(9);
+            } else if (arg == "--list-protocols") {
+                listProtocols = true;
+            } else if (arg == "--create-protocol") {
+                createProtocol = true;
+            } else if (arg.substr(0, 11) == "--validate=") {
+                validateProtocol = true;
+            } else if (arg == "--show-stats") {
+                showStats = true;
+            } else if (arg == "--clear-stats") {
+                clearStats = true;
+            } else if (arg.substr(0, 8) == "--field=") {
+                fieldDefinitions.push_back(arg.substr(8));
+            }
+        }
+        
+        // Create parser instance
+        auto parser = beatrice::parser::ParserBuilder()
+            .withValidation(true)
+            .withFieldCaching(true)
+            .withPerformanceMetrics(true)
+            .build();
+        
+        // Load builtin protocols
+        auto& registry = beatrice::parser::ProtocolRegistry::getInstance();
+        registry.loadBuiltinProtocols();
+        
+        if (listProtocols) {
+            std::cout << "=== Available Protocols ===\n";
+            auto protocolNames = registry.getRegisteredProtocols();
+            for (const auto& protocolName : protocolNames) {
+                const auto* protocol = registry.getProtocol(protocolName);
+                if (protocol) {
+                    std::cout << "  " << protocolName << " v" << protocol->version 
+                              << " (" << protocol->getFieldCount() << " fields)\n";
+                }
+            }
+            std::cout << "Total protocols: " << protocolNames.size() << "\n";
+            
+        } else if (createProtocol) {
+            std::cout << "=== Creating Custom Protocol ===\n";
+            if (protocolName.empty()) {
+                std::cout << "Error: Protocol name required. Use --protocol=NAME\n";
+                return;
+            }
+            
+            beatrice::parser::ProtocolDefinition protocol(protocolName, "1.0");
+            
+            // Parse field definitions
+            for (const auto& fieldDef : fieldDefinitions) {
+                size_t pos1 = fieldDef.find(':');
+                size_t pos2 = fieldDef.find(':', pos1 + 1);
+                size_t pos3 = fieldDef.find(':', pos2 + 1);
+                
+                if (pos1 != std::string::npos && pos2 != std::string::npos && pos3 != std::string::npos) {
+                    std::string name = fieldDef.substr(0, pos1);
+                    std::string type = fieldDef.substr(pos1 + 1, pos2 - pos1 - 1);
+                    size_t offset = std::stoul(fieldDef.substr(pos2 + 1, pos3 - pos2 - 1));
+                    size_t length = std::stoul(fieldDef.substr(pos3 + 1));
+                    (void)length; // Suppress unused variable warning
+                    
+                    if (type == "uint8") {
+                        protocol.addField(beatrice::parser::FieldFactory::createUInt8Field(name, offset, true, "Custom field"));
+                    } else if (type == "uint16") {
+                        protocol.addField(beatrice::parser::FieldFactory::createUInt16Field(name, offset, beatrice::parser::Endianness::NETWORK, true, "Custom field"));
+                    } else if (type == "uint32") {
+                        protocol.addField(beatrice::parser::FieldFactory::createUInt32Field(name, offset, beatrice::parser::Endianness::NETWORK, true, "Custom field"));
+                    } else if (type == "uint64") {
+                        protocol.addField(beatrice::parser::FieldFactory::createUInt64Field(name, offset, beatrice::parser::Endianness::NETWORK, true, "Custom field"));
+                    } else if (type == "bytes") {
+                        protocol.addField(beatrice::parser::FieldFactory::createBytesField(name, offset, 1, true, "Custom field"));
+                    } else {
+                        std::cout << "Warning: Unknown field type '" << type << "' for field '" << name << "'\n";
+                    }
+                }
+            }
+            
+            parser->registerProtocol(protocol);
+            std::cout << "Protocol '" << protocolName << "' created with " << protocol.getFieldCount() << " fields\n";
+            
+        } else if (!rawData.empty()) {
+            std::cout << "=== Parsing Raw Data ===\n";
+            
+            // Convert hex string to bytes
+            std::vector<uint8_t> packetData;
+            for (size_t i = 0; i < rawData.length(); i += 2) {
+                if (i + 1 < rawData.length()) {
+                    std::string byteString = rawData.substr(i, 2);
+                    uint8_t byte = static_cast<uint8_t>(std::stoul(byteString, nullptr, 16));
+                    packetData.push_back(byte);
+                }
+            }
+            
+            std::cout << "=== Parsing Raw Data ===\n";
+            
+            // Try to parse with builtin protocols
+            auto result = parser->parsePacket(packetData);
+            
+            if (result.status == beatrice::parser::ParseStatus::SUCCESS) {
+                std::cout << "Parse successful!\n";
+                std::cout << "Protocol: " << result.protocolName << " v" << result.protocolVersion << "\n";
+                std::cout << "Fields parsed: " << result.fields.size() << "\n";
+                
+                // Output in requested format
+                if (outputFormat == "json") {
+                    std::cout << result.toJsonString() << "\n";
+                } else if (outputFormat == "csv") {
+                    std::cout << result.toCsvString() << "\n";
+                } else {
+                    std::cout << result.toHumanReadableString() << "\n";
+                }
+            } else {
+                std::cout << "Parse failed: " << static_cast<int>(result.status) << "\n";
+                std::cout << "Error: " << result.errorMessage << "\n";
+            }
+            
+        } else if (showStats) {
+            std::cout << "=== Parser Statistics ===\n";
+            auto stats = parser->getStats();
+            std::cout << "Total packets: " << stats.totalPacketsParsed << "\n";
+            std::cout << "Successful: " << stats.successfulParses << "\n";
+            std::cout << "Failed: " << stats.failedParses << "\n";
+            std::cout << "Average parse time: " << stats.averageParseTime.count() << " μs\n";
+            
+        } else if (validateProtocol) {
+            std::cout << "=== Protocol Validation ===" << std::endl;
+            if (protocolName.empty()) {
+                std::cout << "Error: Protocol name required for validation. Use --protocol=NAME" << std::endl;
+                return;
+            }
+            
+            const auto* protocol = registry.getProtocol(protocolName);
+            if (!protocol) {
+                std::cout << "Error: Protocol '" << protocolName << "' not found" << std::endl;
+                return;
+            }
+            
+            std::cout << "Protocol '" << protocolName << "' validation:" << std::endl;
+            std::cout << "  - Name: " << protocol->name << std::endl;
+            std::cout << "  - Version: " << protocol->version << std::endl;
+            std::cout << "  - Fields: " << protocol->getFieldCount() << std::endl;
+            std::cout << "  - Total Length: " << protocol->getTotalLength() << " bytes" << std::endl;
+            std::cout << "Validation completed successfully." << std::endl;
+            
+        } else if (clearStats) {
+            parser->resetStats();
+            std::cout << "Parser statistics cleared\n";
+            
+        } else {
+            std::cout << "Error: No action specified\n";
+            printParserHelp();
+        }
+        
+    } catch (const std::exception& e) {
+        std::cout << "Error: " << e.what() << "\n";
+    }
+}
+
 void threadCommand(const std::vector<std::string>& args) {
     if (args.empty()) {
         printThreadHelp();
@@ -1935,6 +2150,8 @@ int main(int argc, char* argv[]) {
             filterCommand(args);
         } else if (command == "thread") {
             threadCommand(args);
+        } else if (command == "parser") {
+            parserCommand(args);
         } else {
             std::cerr << "Unknown command: " << command << std::endl;
             printUsage(argv[0]);
