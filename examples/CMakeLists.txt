@@ -293,3 +293,30 @@ target_compile_features(telemetry_test PRIVATE cxx_std_20)
 install(TARGETS telemetry_test
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/beatrice/examples
 )
+
+# Parser example (disabled for now - needs implementation)
+# add_executable(parser_example
+#     parser_example.cpp
+# )
+# 
+# set_target_properties(parser_example PROPERTIES
+#     OUTPUT_NAME parser_example
+#     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
+# )
+# 
+# target_link_libraries(parser_example
+#     PRIVATE
+#         beatrice_core
+#         fmt::fmt
+# )
+# 
+# target_include_directories(parser_example
+#     PRIVATE
+#         ${CMAKE_CURRENT_SOURCE_DIR}/../include
+# )
+# 
+# target_compile_features(parser_example PRIVATE cxx_std_20)
+# 
+# install(TARGETS parser_example
+#     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/beatrice/examples
+# )

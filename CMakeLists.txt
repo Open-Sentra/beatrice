@@ -98,6 +98,7 @@ add_library(beatrice_core SHARED
     src/PacketFilter.cpp
     src/ThreadPool.cpp
     src/Error.cpp
+    src/parser/FieldDefinition.cpp
 )
 
 # Set library properties
