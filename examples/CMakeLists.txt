@@ -48,6 +48,7 @@ set_target_properties(plugin_test PROPERTIES
 target_link_libraries(plugin_test
     PRIVATE
         beatrice_core
+        fmt::fmt
 )
 
 # Set include directories
@@ -79,6 +80,7 @@ set_target_properties(performance_test PROPERTIES
 target_link_libraries(performance_test
     PRIVATE
         beatrice_core
+        fmt::fmt
 )
 
 # Set include directories
@@ -110,6 +112,7 @@ set_target_properties(config_example PROPERTIES
 target_link_libraries(config_example
     PRIVATE
         beatrice_core
+        fmt::fmt
 )
 
 # Set include directories

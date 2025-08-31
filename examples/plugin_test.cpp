@@ -10,12 +10,14 @@
 int main() {
     try {
         // Initialize logging
-        beatrice::Logger::initialize("plugin_test", "", beatrice::LogLevel::DEBUG);
+        beatrice::Logger::get().initialize("plugin_test", "", 1024*1024, 5);
         
         BEATRICE_INFO("Starting plugin test");
         
         // Initialize configuration
-        if (!beatrice::Config::initialize()) {
+        auto& config = beatrice::Config::get();
+        auto result = config.initialize("./config.json");
+        if (!result.isSuccess()) {
             BEATRICE_WARN("Failed to initialize configuration, using defaults");
         }
         

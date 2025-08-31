@@ -25,6 +25,7 @@ target_link_libraries(beatrice_tests
         GTest::gtest
         GTest::gtest_main
         GTest::gmock
+        fmt::fmt
 )
 
 # Set properties

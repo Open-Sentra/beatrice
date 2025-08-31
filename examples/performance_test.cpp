@@ -12,12 +12,14 @@
 int main() {
     try {
         // Initialize logging
-        beatrice::Logger::initialize("performance_test", "", beatrice::LogLevel::INFO);
+        beatrice::Logger::get().initialize("performance_test", "", 1024*1024, 5);
         
         BEATRICE_INFO("Starting performance test");
         
         // Initialize configuration and metrics
-        if (!beatrice::Config::initialize()) {
+        auto& config = beatrice::Config::get();
+        auto result = config.initialize("./config.json");
+        if (!result.isSuccess()) {
             BEATRICE_WARN("Failed to initialize configuration, using defaults");
         }
         

@@ -89,11 +89,11 @@ int main() {
         std::cout << config.toJson() << std::endl;
         
         // Get all settings
-        auto& settings = config.getSettings();
         std::cout << "\nAll settings:" << std::endl;
-        for (const auto& [key, value] : settings) {
-            std::cout << "  " << key << ": " << value << std::endl;
-        }
+        std::cout << "  Logging level: " << config.getSettings().logging.level << std::endl;
+        std::cout << "  Network interface: " << config.getSettings().network.interface << std::endl;
+        std::cout << "  Network backend: " << config.getSettings().network.backend << std::endl;
+        std::cout << "  Performance threads: " << config.getSettings().performance.numThreads << std::endl;
         
         std::cout << "\nConfiguration example completed successfully!" << std::endl;
         

@@ -103,7 +103,7 @@ public:
     
     void setEnabled(bool enabled) override {
         enabled_ = enabled;
-        BEATRICE_INFO("SimplePlugin {} {}", enabled ? "enabled" : "disabled");
+        BEATRICE_INFO("SimplePlugin {}", enabled ? "enabled" : "disabled");
     }
     
     // Plugin statistics

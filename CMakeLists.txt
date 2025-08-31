@@ -97,6 +97,7 @@ add_library(beatrice_core SHARED
     src/XDPLoader.cpp
     src/PacketFilter.cpp
     src/ThreadPool.cpp
+    src/Error.cpp
 )
 
 # Set library properties
