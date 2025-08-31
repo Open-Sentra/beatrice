@@ -8,6 +8,7 @@
 #include <vector>
 #include <memory>
 #include <chrono>
+#include "parser/FieldDefinition.hpp"
 
 namespace beatrice {
 namespace parser {
@@ -20,7 +21,9 @@ enum class ParseStatus : uint8_t {
     VALIDATION_FAILED = 4,
     ENDIANNESS_ERROR = 5,
     CHECKSUM_ERROR = 6,
-    CUSTOM_ERROR = 7
+    CUSTOM_ERROR = 7,
+    PROTOCOL_NOT_FOUND = 8,
+    PACKET_TOO_SHORT = 9
 };
 
 enum class FieldValueType : uint8_t {

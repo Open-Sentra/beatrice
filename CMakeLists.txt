@@ -101,6 +101,7 @@ add_library(beatrice_core SHARED
     src/parser/FieldDefinition.cpp
     src/parser/ParserResult.cpp
     src/parser/ProtocolRegistry.cpp
+    src/parser/ProtocolParser.cpp
 )
 
 # Set library properties

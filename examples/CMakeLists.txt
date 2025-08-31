@@ -98,6 +98,38 @@ install(TARGETS performance_test
 )
 
 # Configuration example
+
+# Parser example
+add_executable(parser_example
+    parser_example.cpp
+)
+
+# Set properties
+set_target_properties(parser_example PROPERTIES
+    OUTPUT_NAME parser_example
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/examples
+)
+
+# Link libraries
+target_link_libraries(parser_example
+    PRIVATE
+        beatrice_core
+        fmt::fmt
+)
+
+# Set include directories
+target_include_directories(parser_example
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+# Set compile features
+target_compile_features(parser_example PRIVATE cxx_std_20)
+
+# Install parser example
+install(TARGETS parser_example
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/beatrice/examples
+)
 add_executable(config_example
     config_example.cpp
 )

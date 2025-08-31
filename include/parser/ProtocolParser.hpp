@@ -92,6 +92,13 @@ public:
     void enableProfiling(bool enable);
     bool isProfilingEnabled() const;
     
+    // Utility methods
+    std::string bytesToHex(const std::vector<uint8_t>& bytes) const;
+    std::string formatMacAddress(const std::vector<uint8_t>& bytes) const;
+    std::string formatIPv4Address(const std::vector<uint8_t>& bytes) const;
+    std::string formatIPv6Address(const std::vector<uint8_t>& bytes) const;
+    std::string formatTimestamp(uint64_t timestamp) const;
+    
 private:
     ParserConfig config_;
     ParserStats stats_;

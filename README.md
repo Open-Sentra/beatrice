@@ -34,6 +34,9 @@ Beatrice is a network packet processing SDK designed for high-performance networ
 - **Cross-Platform**: Linux and macOS support with consistent APIs
 - **Command Line Interface**: Powerful CLI for easy testing and development
 - **Zero-Copy DMA Access**: Advanced memory management for maximum performance
+- **Generic Protocol Parser**: Extensible protocol parsing system with built-in support for common protocols
+- **Packet Filtering Engine**: BPF-based filtering with custom filter support
+- **Multi-threading & Load Balancing**: Advanced thread management with load balancing strategies
 
 ## Architecture
 
@@ -51,6 +54,9 @@ graph TB
         D[PluginManager]
         E[Configuration Manager]
         F[Metrics & Monitoring]
+        G[Protocol Parser System]
+        H[Packet Filtering Engine]
+        I[Thread Pool & Load Balancer]
     end
     
     subgraph "Backend Layer"
@@ -192,6 +198,34 @@ graph TB
   - Performance measurement and analysis
   - Context-aware telemetry
   - Custom backend integration
+
+- **Generic Protocol Parser System**
+  - Extensible field definition system
+  - Support for all common data types (uint8-64, int8-64, float32/64, bytes, string, boolean)
+  - Built-in protocol definitions (Ethernet, IPv4/6, TCP, UDP, ICMP, HTTP, DNS, ARP, VLAN, MPLS)
+  - Custom protocol creation and registration
+  - Field validation with constraints and patterns
+  - Multiple output formats (JSON, XML, CSV, Human-readable)
+  - Performance metrics and caching
+  - Endianness handling (Network, Little, Big)
+  - Bit-level operations and custom field types
+
+- **Packet Filtering Engine**
+  - BPF-based packet filtering
+  - Protocol-based filtering
+  - IP range and port range filtering
+  - Payload content filtering
+  - Custom filter functions
+  - Filter statistics and monitoring
+  - Real-time filter management
+
+- **Multi-threading & Load Balancing**
+  - Advanced thread pool management
+  - Multiple load balancing strategies (Round Robin, Least Loaded, Weighted, Adaptive)
+  - CPU affinity and thread pinning
+  - Task stealing for optimal load distribution
+  - Performance monitoring and statistics
+  - Thread lifecycle management
 
 ### Plugin System
 
@@ -408,15 +442,135 @@ beatrice_cli benchmark --backend dpdk --packets 1000000
 
 # Test all backends
 beatrice_cli test --backend all
+
+# Protocol parsing
+beatrice_cli parser --help
+beatrice_cli parser --protocol tcp --packet-file sample.pcap
+
+# Packet filtering
+beatrice_cli filter --help
+beatrice_cli filter --add protocol:tcp --add ip:192.168.1.0/24
+
+# Thread pool management
+beatrice_cli thread --help
+beatrice_cli thread --info --stats --affinity
+```
+
+### Protocol Parser System
+
+Beatrice includes a powerful, extensible protocol parsing system that allows you to define and parse custom network protocols:
+
+```cpp
+#include "beatrice/parser/ProtocolParser.hpp"
+#include "beatrice/parser/FieldDefinition.hpp"
+#include "beatrice/parser/BuiltinProtocols.hpp"
+
+int main() {
+    // Create a custom protocol
+    beatrice::parser::ProtocolDefinition protocol("CUSTOM_PROTO", "1.0");
+    
+    // Add fields with validation
+    protocol.addField(beatrice::parser::FieldFactory::createUInt32Field("header", 0, true, "Protocol header"));
+    protocol.addField(beatrice::parser::FieldFactory::createUInt8Field("version", 4, true, "Protocol version"));
+    protocol.addField(beatrice::parser::FieldFactory::createUInt16Field("length", 5, true, "Data length"));
+    protocol.addField(beatrice::parser::FieldFactory::createBytesField("data", 7, true, "Payload data"));
+    
+    // Create parser with configuration
+    auto parser = beatrice::parser::ProtocolParser::Builder()
+        .enableValidation()
+        .enableCaching()
+        .enableProfiling()
+        .addProtocol(protocol)
+        .build();
+    
+    // Parse packet data
+    std::vector<uint8_t> packetData = {0x12, 0x34, 0x56, 0x78, 0x01, 0x00, 0x0A, 0xAA, 0xBB, 0xCC};
+    auto result = parser.parsePacket(packetData);
+    
+    if (result.status == beatrice::parser::ParseStatus::SUCCESS) {
+        std::cout << "Protocol: " << result.protocolName << " v" << result.protocolVersion << std::endl;
+        std::cout << "Header: 0x" << std::hex << result.getFieldUInt("header") << std::endl;
+        std::cout << "Version: " << (int)result.getFieldUInt8("version") << std::endl;
+        std::cout << "Length: " << result.getFieldUInt16("length") << std::endl;
+        
+        // Get formatted output
+        std::cout << "JSON: " << result.toJsonString() << std::endl;
+    }
+    
+    return 0;
+}
+```
+
+### Packet Filtering Engine
+
+Beatrice provides a powerful packet filtering system with BPF support and custom filters:
+
+```cpp
+#include "beatrice/PacketFilter.hpp"
+
+int main() {
+    beatrice::PacketFilter filter;
+    
+    // Add protocol filter
+    filter.addFilter(beatrice::PacketFilter::FilterType::PROTOCOL, "TCP");
+    
+    // Add IP range filter
+    filter.addFilter(beatrice::PacketFilter::FilterType::IP_RANGE, "192.168.1.0/24");
+    
+    // Add port range filter
+    filter.addFilter(beatrice::PacketFilter::FilterType::PORT_RANGE, "80-443");
+    
+    // Add custom filter function
+    filter.addCustomFilter([](const std::vector<uint8_t>& packet) -> bool {
+        return packet.size() > 64; // Only packets larger than 64 bytes
+    });
+    
+    // Apply filters to packet
+    std::vector<uint8_t> packet = /* packet data */;
+    if (filter.applyFilters(packet)) {
+        std::cout << "Packet passed all filters" << std::endl;
+    }
+    
+    return 0;
+}
+```
+
+### Multi-threading & Load Balancing
+
+Beatrice includes an advanced thread pool system with multiple load balancing strategies:
+
+```cpp
+#include "beatrice/ThreadPool.hpp"
+
+int main() {
+    // Create thread pool with load balancing
+    beatrice::ThreadPool pool(4, beatrice::ThreadPool::LoadBalancingStrategy::ADAPTIVE);
+    
+    // Set CPU affinity
+    pool.setCPUAffinity({0, 1, 2, 3});
+    
+    // Submit tasks
+    for (int i = 0; i < 100; ++i) {
+        pool.submit([i]() {
+            std::cout << "Task " << i << " executed on thread " 
+                      << std::this_thread::get_id() << std::endl;
+        });
+    }
+    
+    // Wait for completion
+    pool.waitForAll();
+    
+    // Get statistics
+    auto stats = pool.getStatistics();
+    std::cout << "Total tasks: " << stats.totalTasks << std::endl;
+    std::cout << "Completed: " << stats.completedTasks << std::endl;
+    std::cout << "Average execution time: " << stats.averageExecutionTime.count() << " μs" << std::endl;
+    
+    return 0;
+}
 ```
 
 ### Basic Usage (C++)
-
-```cpp
-#include "beatrice/BeatriceContext.hpp"
-#include "beatrice/AF_PacketBackend.hpp"
-#include "beatrice/PluginManager.hpp"
-#include "beatrice/Logger.hpp"
 
 int main() {
     // Initialize logging
@@ -923,6 +1077,99 @@ auto backend = std::make_unique<beatrice::AF_XDPBackend>();
 
 // DPDK Backend (DPDK ports)
 auto backend = std::make_unique<beatrice::DPDKBackend>();
+```
+
+## Examples
+
+Beatrice provides comprehensive examples demonstrating all major features and use cases.
+
+### Protocol Parser Example
+
+The `parser_example` demonstrates how to create custom protocols and parse network packets:
+
+```bash
+cd build/examples
+./parser_example
+```
+
+**Expected Output:**
+```
+=== Beatrice Protocol Parser Example ===
+
+1. Creating custom protocol...
+Custom protocol registered: CUSTOM_PROTO v1.0
+Fields: 4
+
+2. Creating test packet...
+Packet size: 17 bytes
+
+3. Parsing packet...
+Parse successful!
+Protocol: CUSTOM_PROTO v1.0
+Fields parsed: 4
+Parse time: 25 μs
+
+4. Field values:
+  Header: 0x12345678
+  Version: 1
+  Length: 10
+  Data: aa bb cc dd ee ff 11 22 ...
+
+5. JSON output:
+{"status":0,"protocol_name":"CUSTOM_PROTO","protocol_version":"1.0",...}
+
+6. Parser statistics:
+  Total packets: 1
+  Successful: 1
+  Failed: 0
+  Average parse time: 20 μs
+```
+
+### Packet Filtering Example
+
+The `filter_example` demonstrates packet filtering capabilities:
+
+```bash
+cd build/examples
+./filter_example
+```
+
+**Features Demonstrated:**
+- Protocol-based filtering (TCP, UDP, ICMP)
+- IP range filtering (192.168.1.0/24)
+- Port range filtering (80-443)
+- Custom filter functions
+- Filter statistics and monitoring
+
+### Thread Pool Example
+
+The `thread_example` demonstrates multi-threading and load balancing:
+
+```bash
+cd build/examples
+./thread_example
+```
+
+**Features Demonstrated:**
+- Thread pool creation and management
+- Multiple load balancing strategies
+- CPU affinity and thread pinning
+- Task submission and execution
+- Performance statistics and monitoring
+
+### Available Examples
+
+| Example | Purpose | Features |
+|---------|---------|----------|
+| **parser_example** | Protocol parsing | Custom protocols, field validation, multiple formats |
+| **dpdk_example** | DPDK backend | High-performance packet capture, zero-copy |
+| **pmd_example** | PMD backend | Virtual interfaces, TAP/TUN support |
+| **af_packet_example** | AF_PACKET backend | Raw socket capture, loopback testing |
+| **zero_copy_dma_test** | DMA testing | Zero-copy operations, DMA buffer management |
+| **telemetry_test** | Telemetry system | Metrics, tracing, health monitoring |
+| **config_example** | Configuration | Dynamic configuration, hot-reloading |
+| **plugin_test** | Plugin system | Dynamic loading, plugin management |
+| **performance_test** | Performance | Benchmarking, stress testing |
 backend->setDPDKArgs({"-l", "0-3", "-n", "4"});
 
 // PMD Backend (Virtual interfaces)
