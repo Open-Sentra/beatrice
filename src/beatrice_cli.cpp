@@ -511,16 +511,28 @@ void benchmarkCommand(const std::vector<std::string>& args) {
             return;
         } else if (args[i].substr(0, 9) == "--backend=") {
             backendType = args[i].substr(9);
+        } else if (args[i] == "-b" && i + 1 < args.size()) {
+            backendType = args[++i];
         } else if (args[i].substr(0, 12) == "--interface=") {
             interface = args[i].substr(12);
+        } else if (args[i] == "-i" && i + 1 < args.size()) {
+            interface = args[++i];
         } else if (args[i].substr(0, 10) == "--packets=") {
             packetCount = std::stoi(args[i].substr(10));
+        } else if (args[i] == "-p" && i + 1 < args.size()) {
+            packetCount = std::stoi(args[++i]);
         } else if (args[i].substr(0, 7) == "--size=") {
             packetSize = std::stoi(args[i].substr(7));
+        } else if (args[i] == "-s" && i + 1 < args.size()) {
+            packetSize = std::stoi(args[++i]);
         } else if (args[i].substr(0, 9) == "--threads=") {
             numThreads = std::stoi(args[i].substr(9));
+        } else if (args[i] == "-t" && i + 1 < args.size()) {
+            numThreads = std::stoi(args[++i]);
         } else if (args[i].substr(0, 11) == "--duration=") {
             duration = std::stoi(args[i].substr(11));
+        } else if (args[i] == "-d" && i + 1 < args.size()) {
+            duration = std::stoi(args[++i]);
         } else if (args[i] == "--zero-copy") {
             enableZeroCopy = true;
         } else if (args[i] == "--dma-access") {
@@ -703,6 +715,8 @@ void testCommand(const std::vector<std::string>& args) {
             return;
         } else if (args[i].substr(0, 10) == "--backend=") {
             backendType = args[i].substr(10);
+        } else if (args[i] == "-b" && i + 1 < args.size()) {
+            backendType = args[++i];
         } else if (args[i] == "--zero-copy") {
             testZeroCopy = true;
         } else if (args[i] == "--dma-access") {
