@@ -367,16 +367,26 @@ void captureCommand(const std::vector<std::string>& args) {
         if (args[i] == "--help" || args[i] == "-h") {
             printCaptureHelp();
             return;
-        } else if (args[i].substr(0, 9) == "--backend=") {
-            backendType = args[i].substr(9);
+        } else if (args[i].substr(0, 10) == "--backend=") {
+            backendType = args[i].substr(10);
+        } else if (args[i] == "-b" && i + 1 < args.size()) {
+            backendType = args[++i];
         } else if (args[i].substr(0, 12) == "--interface=") {
             interface = args[i].substr(12);
+        } else if (args[i] == "-i" && i + 1 < args.size()) {
+            interface = args[++i];
         } else if (args[i].substr(0, 11) == "--duration=") {
             duration = std::stoi(args[i].substr(11));
+        } else if (args[i] == "-d" && i + 1 < args.size()) {
+            duration = std::stoi(args[++i]);
         } else if (args[i].substr(0, 8) == "--count=") {
             maxPackets = std::stoi(args[i].substr(8));
+        } else if (args[i] == "-c" && i + 1 < args.size()) {
+            maxPackets = std::stoi(args[++i]);
         } else if (args[i].substr(0, 7) == "--size=") {
             options["buffer_size"] = args[i].substr(7);
+        } else if (args[i] == "-s" && i + 1 < args.size()) {
+            options["buffer_size"] = args[++i];
         } else if (args[i] == "--promiscuous" || args[i] == "-p") {
             options["promiscuous"] = "true";
         } else if (args[i] == "--timestamp" || args[i] == "-t") {
@@ -509,8 +519,8 @@ void benchmarkCommand(const std::vector<std::string>& args) {
         if (args[i] == "--help" || args[i] == "-h") {
             printBenchmarkHelp();
             return;
-        } else if (args[i].substr(0, 9) == "--backend=") {
-            backendType = args[i].substr(9);
+        } else if (args[i].substr(0, 10) == "--backend=") {
+            backendType = args[i].substr(10);
         } else if (args[i] == "-b" && i + 1 < args.size()) {
             backendType = args[++i];
         } else if (args[i].substr(0, 12) == "--interface=") {
